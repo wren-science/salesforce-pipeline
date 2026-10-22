@@ -23,6 +23,9 @@ test.describe('#20 My open enquiries list view', () => {
     const personaId = personaUserId(testInfo.project.name);
     // Lead_Source_Detail__c is left blank: the CLI user has no FLS on it (only persona permission sets grant
     // it), and anonymous Apex enforces FLS. AC2 asserts the column, not a value in it.
+    // The conversion gives its new Account and Contact to the CLI user: NPSP adds Account record types, and the
+    // persona has none (it cannot create Accounts), so converting with the persona as owner fails with
+    // UNAVAILABLE_RECORDTYPE_EXCEPTION. The converted Lead itself stays the persona's, which the seed asserts.
     runApex(`
       Id personaId = '${personaId}';
       List<Lead> leads = new List<Lead>{
@@ -35,7 +38,10 @@ test.describe('#20 My open enquiries list view', () => {
       lc.setLeadId(leads[2].Id);
       lc.setConvertedStatus([SELECT ApiName FROM LeadStatus WHERE IsConverted = true LIMIT 1].ApiName);
       lc.setDoNotCreateOpportunity(true);
+      lc.setOwnerId(UserInfo.getUserId());
       Database.convertLead(lc);
+      Lead convertedLead = [SELECT OwnerId, IsConverted FROM Lead WHERE Id = :leads[2].Id];
+      System.assert(convertedLead.IsConverted && convertedLead.OwnerId == personaId, 'Converted Lead must stay the persona\\'s');
     `);
   });
 
