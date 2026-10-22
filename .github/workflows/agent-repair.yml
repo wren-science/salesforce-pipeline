@@ -56,10 +56,15 @@ jobs:
           if [ "$WF" = "Validate against QA" ] && [ "$CONCLUSION" = "failure" ]; then REASON="check-only deploy to QA failed (validate/qa)"; fi
           if [ "$WF" = "Agent review" ] && [ "$CONCLUSION" = "success" ] && echo ",$LABELS," | grep -q ",agent:rework-required,"; then REASON="reviewer requested changes"; fi
           [ -n "$REASON" ] || exit 0
-          COMMENTS=$(gh api --paginate "repos/$R/issues/$PR/comments" --jq '.[] | select(.body | startswith("<!-- agent:repair")) | .body')
+          # Repair comments since the last budget reset. A person (not a bot) can grant a fresh budget with a
+          # comment starting "<!-- agent:repair-reset -->" that says why (docs/pipeline/governance.md).
+          COMMENTS=$(gh api --paginate "repos/$R/issues/$PR/comments" | jq -rs '
+            add as $all
+            | ([$all | to_entries[] | select(.value.user.type == "User" and (.value.body | startswith("<!-- agent:repair-reset -->"))) | .key] | max // -1) as $reset
+            | $all | to_entries[] | select(.key > $reset) | .value | select(.body | startswith("<!-- agent:repair sha=")) | .body')
           # One repair per commit: a tests failure and a QA failure on the same commit start one repair.
           if printf '%s\n' "$COMMENTS" | grep -q "<!-- agent:repair sha=$HEAD_SHA -->"; then echo "Already repairing $HEAD_SHA"; exit 0; fi
-          ATTEMPTS=$(printf '%s\n' "$COMMENTS" | grep -c '^<!-- agent:repair' || true)
+          ATTEMPTS=$(printf '%s\n' "$COMMENTS" | grep -c '^<!-- agent:repair sha=' || true)
           if [ "$ATTEMPTS" -ge 3 ]; then
             if ! echo ",$LABELS," | grep -q ",human:approval-required,"; then
               gh api "repos/$R/issues/$PR/labels" -f "labels[]=human:approval-required" >/dev/null
