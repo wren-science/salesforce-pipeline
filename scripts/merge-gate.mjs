@@ -41,8 +41,10 @@ for (const pr of prs) {
   let detail = api(`repos/${repo}/pulls/${n}`);
   if (detail.mergeable === null) { execFileSync('sleep', ['5']); detail = api(`repos/${repo}/pulls/${n}`); }
   if (detail.mergeable === false && detail.mergeable_state === 'dirty') {
-    const repairing = JSON.parse(gh('api', '--paginate', '--slurp', `repos/${repo}/issues/${n}/comments?per_page=100`)).flat()
-      .some((c) => c.body?.startsWith(`<!-- agent:repair sha=${sha} -->`));
+    // Under way = more attempts than voided attempts (the agent never ran) for this commit.
+    const bodies = JSON.parse(gh('api', '--paginate', '--slurp', `repos/${repo}/issues/${n}/comments?per_page=100`)).flat().map((c) => c.body ?? '');
+    const repairing = bodies.filter((b) => b.startsWith(`<!-- agent:repair sha=${sha} -->`)).length
+      > bodies.filter((b) => b.startsWith(`<!-- agent:repair-void sha=${sha} -->`)).length;
     if (repairing) { say('conflicts with integration; a repair is already under way for this commit'); continue; }
     say('conflicts with integration; dispatching the repair agent');
     if (!dryRun) gh('workflow', 'run', 'agent-repair.yml', '--repo', repo, '--ref', 'integration', '-f', `pr=${n}`, '-f', 'reason=merge conflict with integration (another story merged first)');
