@@ -75,6 +75,9 @@ if (cmd === 'revoke') {
     sf(['org', 'login', 'access-token', '--instance-url', l.instanceUrl, '--alias', l.alias, '--no-prompt',
       ...(l.alias === 'agent' ? ['--set-default'] : [])], { SF_ACCESS_TOKEN: l.accessToken });
     if (l.key) writeFileSync(join(authDir, `${l.key}.alias`), l.alias, { mode: 0o600 });
+    // Every deploy is explicit (force-app), so CLI source tracking would only raise conflicts with the lease's
+    // own deploy (ADR 0003). Retrieve by metadata name instead.
+    sf(['org', 'disable', 'tracking', '--target-org', l.alias]);
   }
   for (const line of personaEnv.split('\n').filter(Boolean)) mask(line.slice(line.indexOf('=') + 1));
   writeFileSync(join(authDir, 'persona.env'), personaEnv, { mode: 0o600 });
