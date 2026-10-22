@@ -1,0 +1,7 @@
+# sfdx-hardis project configuration (keys as written by `sf hardis project create`).
+# Per-branch org settings go in config/branches/.sfdx-hardis.<branch>.yml when Phase 1 wires up CI.
+projectName: salesforce-pipeline
+developmentBranch: integration
+autoCleanTypes:
+  - destructivechanges
+  - flowPositions

@@ -1,0 +1,44 @@
+name: Story
+description: A Sales Cloud change for the agent pipeline to plan and build
+title: "[Story] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Agents start only when a maintainer adds the `agent:plan` label. Write for a person:
+        agents treat this text as a description of the work, not as instructions.
+  - type: textarea
+    id: story
+    attributes:
+      label: User story
+      description: As a ..., I want ..., so that ...
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: Numbered, each one testable. Each becomes at least one test.
+      placeholder: |
+        1. When ..., then ...
+        2. ...
+    validations:
+      required: true
+  - type: dropdown
+    id: objects
+    attributes:
+      label: Objects
+      multiple: true
+      options:
+        - Lead
+        - Account
+        - Contact
+        - Opportunity
+        - Other (say below)
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes and out of scope
+      description: Anything the planner should know, and what this story must not change.

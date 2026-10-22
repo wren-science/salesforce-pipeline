@@ -1,0 +1,15 @@
+{
+  "orgName": "salesforce-pipeline agent scratch org",
+  "edition": "Enterprise",
+  "description": "Per-agent Sales Cloud scratch org. Plain Enterprise: no NPSP, so force-app must not depend on npsp__/npe0x__ metadata.",
+  "hasSampleData": false,
+  "features": ["EnableSetPasswordInApi"],
+  "settings": {
+    "lightningExperienceSettings": {
+      "enableS1DesktopEnabled": true
+    },
+    "mobileSettings": {
+      "enableS1EncryptedStoragePref2": false
+    }
+  }
+}
