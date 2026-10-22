@@ -1,4 +1,7 @@
 name: PR tests
+# The run name carries the PR branch and commit: workflows chained after this one (agent review, agent repair)
+# run on integration, so their own head_branch/head_sha are integration's, never the PR's.
+run-name: "PR tests · ${{ github.event.workflow_run.head_branch }} · ${{ github.event.workflow_run.head_sha }}"
 
 # Every PR gets its own scratch org, its persona users, and its Apex and Playwright tests, run as personas
 # (TST-16), with the evidence posted back to the PR as the status "tests/scratch".

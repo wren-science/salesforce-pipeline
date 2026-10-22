@@ -1,4 +1,6 @@
 name: Agent review
+# Keeps the PR branch and commit from the PR tests run name, for agent repair (see pr-tests.yml).
+run-name: "Agent review · ${{ github.event.workflow_run.display_title }}"
 
 # Three reviewer agents (architecture, security, tests) review a story PR once its persona tests pass.
 # They cite rule IDs, comment, and add agent:rework-required on a blocking finding. They cannot approve
@@ -17,7 +19,7 @@ jobs:
     name: Review (${{ matrix.role }})
     if: >
       github.event.workflow_run.conclusion == 'success' &&
-      startsWith(github.event.workflow_run.head_branch, 'feature/') &&
+      contains(github.event.workflow_run.display_title, ' · feature/') &&
       github.event.workflow_run.head_repository.full_name == github.repository
     runs-on: ubuntu-latest
     environment: agents
@@ -32,9 +34,6 @@ jobs:
       matrix:
         role: [reviewer-architecture, reviewer-security, reviewer-tests]
     steps:
-      - name: Report (${{ matrix.role }})
-        if: always()
-        run: node scripts/agent-report.mjs "${{ matrix.role }}" "${{ steps.reviewer.outputs.execution_file }}"
       - uses: actions/checkout@v4
         with:
           ref: integration
@@ -45,14 +44,17 @@ jobs:
         id: pr
         env:
           GH_TOKEN: ${{ github.token }}
-          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          TITLE: ${{ github.event.workflow_run.display_title }}
         run: |
+          HEAD_SHA=$(printf '%s' "$TITLE" | grep -oE '[0-9a-f]{40}$' || true)
+          [ -n "$HEAD_SHA" ] || { echo "No PR commit in the run name"; exit 1; }
           git fetch --no-tags origin "$HEAD_SHA"
           git checkout "$HEAD_SHA" -- force-app tests config 2>/dev/null || true
           PR=$(gh api "repos/${{ github.repository }}/commits/$HEAD_SHA/pulls" --jq '.[0].number')
           echo "number=$PR" >> "$GITHUB_OUTPUT"
 
       - name: Reviewer agent
+        id: reviewer
         if: steps.pr.outputs.number != ''
         uses: anthropics/claude-code-action@05049bd0bcda11738058a1318af29d1ac8d111b4 # v1.0.245
         with:
@@ -74,3 +76,7 @@ jobs:
             --max-turns 60
             --allowedTools "Read,Grep,Glob,Write,Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr comment:*),Bash(gh pr edit:*),Bash(gh issue view:*),Bash(ls:*),Bash(cat:*),Bash(head:*),Bash(tail:*),Bash(find:*),Bash(grep:*),Bash(wc:*),Bash(cd:*),Bash(pwd),Bash(mkdir:*),Bash(jq:*)"
             --disallowedTools "Edit"
+
+      - name: Report (${{ matrix.role }})
+        if: always() && steps.pr.outputs.number != ''
+        run: node scripts/agent-report.mjs "${{ matrix.role }}" "${{ steps.reviewer.outputs.execution_file }}"
