@@ -3,7 +3,8 @@
 | Workflow | Runs on | Holds | Does |
 | --- | --- | --- | --- |
 | `pr-checks.yml` | Every PR into `integration` | Nothing | Metadata checks (DM-03, QG-07), NPSP guard (PIPE-04), `.github/` guard for story branches (PIPE-08), secret scan (QG-08), Code Analyzer v5 (QG-03) |
-| `pr-tests.yml` | When PR checks pass (same-repo PRs) | Dev Hub login in `provision`/`cleanup` only | Scratch org per PR, persona users, Apex (`RunLocalTests`) and Playwright as personas (TST-16), evidence comment, status `tests/scratch` |
+| `pr-tests.yml` | When PR checks pass (same-repo PRs) | The pool sandbox's JWT key, in `lease` only | The PR deployed to its story's pool sandbox (ADR 0003), persona users, this repo's Apex tests and Playwright as personas (TST-16), evidence comment, status `tests/personas` |
+| `sandbox-release.yml` | A PR or story closed by a person | Nothing | Releases the holder's pool sandbox (the merge gate releases on its own merges) |
 | `validate-qa.yml` | When PR checks pass (same-repo PRs) | QA check-only login | sfdx-hardis check-only deploy of the PR's `force-app` to QA, status `validate/qa` |
 | `deploy-qa.yml` | Every merge to `integration` | QA login | sfdx-hardis deploy to the QA sandbox, persona provisioning by JWT, Playwright regression as personas |
 | `publish-wiki.yml` | Push to `integration` touching `docs/` | Nothing | Regenerates the wiki |
@@ -15,21 +16,25 @@ A pull request can change any file, so PR code never runs next to a shared login
 - `pr-checks.yml` runs the PR's own workflow file but has no secrets.
 - `pr-tests.yml` and `validate-qa.yml` run from `integration`'s copy of themselves (`workflow_run`). They take only
   `force-app/`, `tests/e2e/specs/` and `config/personas.json` from the PR.
-- In `pr-tests.yml` the Dev Hub login lives only in `provision` and `cleanup`, on their own runners. The `work`
-  job that runs PR code gets just the throwaway scratch org's login, encrypted in transit
-  (`SCRATCH_HANDOFF_KEY`) and deleted after use. Only the trusted `report` job can write statuses and comments.
+- In `pr-tests.yml`, `agent-build.yml` and `agent-repair.yml`, the pool sandbox's JWT key lives only in the `lease`
+  job (environment `sandbox-pool`), on its own runner. The job that runs PR code or an agent gets short-lived access
+  tokens for the admin and each persona, encrypted in transit (`SCRATCH_HANDOFF_KEY`) and revoked at the end. Each
+  pool sandbox has its own certificate (`sandbox-setup/prepare-pool-sandbox.sh`), so no QA or production key opens it.
+  Only the trusted `report` job can write statuses and comments.
 - Fork PRs never reach the trusted workflows.
 
 ## Personas in CI
 
 `scripts/personas.mjs` makes any org persona-ready from `config/personas.json`: the persona's profile, its
 permission set group and its persona public group (06 §6.1), then a one-time frontdoor login for Playwright.
-Scratch orgs use `sf org create user`; QA uses the data API and a JWT login as the persona (the persona also
+Pool sandboxes and QA use the data API and a JWT login as the persona (in pool sandboxes the lease job does this,
+and `--reset-mfa` clears the persona's authenticator so Playwright registers a fresh one); scratch orgs use `sf org create user`. In QA (the persona also
 holds `Salesforce_Pipeline_CI`, which only pre-authorises the CI app). Each Playwright project is a persona.
 
 ## Which tests run
 
-In scratch orgs, all local tests. In QA, which also holds other projects' Apex, `.github/scripts/test-level.sh`
+Pool sandboxes and QA also hold the org's other Apex, so only this repo's tests run: in a sandbox, `--class-names`
+for each test class in `force-app`; in QA, `.github/scripts/test-level.sh`
 picks `RunRepositoryTests` (this repo's tests only) or `NoTestRun` when there are none.
 
 ## Environments

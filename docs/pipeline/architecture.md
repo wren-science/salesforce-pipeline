@@ -14,19 +14,19 @@ GitHub Actions on label and check events. Every design and security decision sta
    approach (DES-02), rule IDs, ADRs needed (01 §4), tests per criterion, risk. A low-risk plan with no ADR
    and no open questions approves itself (`agent:approved`); otherwise a person decides
    (`human:approval-required`).
-3. **Test writer, then developer** (`agent-build.yml`), in their own scratch org: tests first, as personas,
+3. **Test writer, then developer** (`agent-build.yml`), in the story's leased pool sandbox (ADR 0003), a source-tracked copy of the real org brought up to integration: tests first, as personas,
    then the build until every test passes. The developer opens a draft PR.
 4. **PR checks** (`pr-checks.yml`): metadata and data classification (QG-07), NPSP guard (PIPE-04),
    `.github` guard (PIPE-08), secret scan (QG-08), Code Analyzer (QG-03).
-5. **PR tests** (`pr-tests.yml`): a fresh scratch org, persona users, all Apex tests and the Playwright
-   acceptance tests as personas, with an evidence comment on the PR (`tests/scratch`).
+5. **PR tests** (`pr-tests.yml`): the PR deployed to the story's sandbox, persona users, this repo's Apex tests and the Playwright
+   acceptance tests as personas, with an evidence comment on the PR (`tests/personas`).
 6. **QA validation** (`validate-qa.yml`): sfdx-hardis check-only deploy to the QA sandbox (`validate/qa`).
 7. **Review agents** (`agent-review.yml`): architecture, security and tests, citing rule IDs. A blocking
    finding adds `agent:rework-required`.
    When all three are approve-able, the commit gets the status `review/agents`.
 8. **Repair agent** (`agent-repair.yml`) when persona tests or QA validation fail, or a reviewer asks for
    rework: at most 3 attempts (one per commit), then a person (`human:approval-required`).
-9. **Merge gate** (`merge-gate.yml`, `scripts/merge-gate.mjs`): when `Static checks`, `tests/scratch`,
+9. **Merge gate** (`merge-gate.yml`, `scripts/merge-gate.mjs`): when `Static checks`, `tests/personas`,
    `validate/qa` and `review/agents` have passed on the PR's current commit, it marks the PR ready and squash-merges it.
    Agents cannot approve or merge; the gate is plain code. If `integration` has moved since the QA
    validation, it re-runs that validation first, so a story is always validated against QA as it is now.
@@ -43,7 +43,7 @@ those.
 
 | Branch | Org | Status |
 | --- | --- | --- |
-| `feature/<issue>-<slug>` | The story's scratch orgs (agents' and the PR's) | Built |
+| `feature/<issue>-<slug>` | The story's leased pool sandbox (agents, PR tests, repair; ADR 0003) | Built |
 | `pipeline/<topic>` | Maintainer changes to the pipeline itself (may change `.github/`) | Built |
 | `integration` (default) | QA sandbox (our dev org), deployed on every merge | Built |
 | `uat`, `preprod`, `main` | UAT, preprod, production, by promotion PRs | Planned |
@@ -66,7 +66,7 @@ Role definitions: `.claude/agents/`. Rules every agent follows: `CLAUDE.md`.
   whose login never shares a runner with PR code or an agent (PIPE-09).
 - **Public repo, untrusted input.** Agents start on labels and checks only; issue and PR text is data,
   not instructions (PIPE-07). Fork PRs never reach the trusted workflows.
-- **Agents hold only throwaway logins**: their scratch org, encrypted in transit and deleted after use, and
+- **Agents hold only short-lived logins**: access tokens for their story's sandbox, encrypted in transit and revoked after use, and
   the Claude token from the `agents` environment, which only `integration` can use.
 - **Agents cannot change the pipeline**: `.github/**` and `manifest/**` are denied to their tools, and PR
   checks fail any story branch that touches `.github/` (PIPE-08).

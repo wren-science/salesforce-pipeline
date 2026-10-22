@@ -3,13 +3,15 @@ name: PR tests
 # run on integration, so their own head_branch/head_sha are integration's, never the PR's.
 run-name: "PR tests · ${{ github.event.workflow_run.head_branch }} · ${{ github.event.workflow_run.head_sha }}"
 
-# Every PR gets its own scratch org, its persona users, and its Apex and Playwright tests, run as personas
-# (TST-16), with the evidence posted back to the PR as the status "tests/scratch".
+# Every PR is deployed to its story's pool sandbox (ADR 0003): a source-tracked Developer sandbox that
+# starts from integration, with the org's packages and configuration. The persona users run the Apex and
+# Playwright tests (TST-16), and the evidence is posted back to the PR as the status "tests/personas".
 #
-# Why four jobs on four runners (PIPE-09): the Dev Hub login (a production login) must never share a runner
-# with PR code. "provision" and "cleanup" hold the Dev Hub login and run no PR code. "work" runs the PR's
-# code and tests but only ever holds the throwaway scratch org's login, handed over encrypted.
-# "report" runs trusted code only and is the one job that can write statuses and comments.
+# Why three jobs on three runners (PIPE-09):
+# - "lease" holds the sandbox's JWT key and runs no PR code. It leases and prepares the sandbox, then hands
+#   over short-lived access tokens only.
+# - "work" runs the PR's code and tests with those tokens, and revokes them when it finishes.
+# - "report" runs trusted code only. It is the one job that can write statuses and comments.
 on:
   workflow_run:
     workflows: [PR checks]
@@ -24,28 +26,34 @@ concurrency:
 
 env:
   HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+  HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
 
 jobs:
-  provision:
-    name: Create scratch org
+  lease:
+    name: Lease and prepare the story's sandbox
     if: >
       github.event.workflow_run.event == 'pull_request' &&
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.head_repository.full_name == github.repository
     runs-on: ubuntu-latest
-    environment: devhub
+    environment: sandbox-pool
+    concurrency:
+      group: sandbox-lease
+      cancel-in-progress: false
     permissions:
       contents: read
       statuses: write
+      issues: write
+      pull-requests: write
     outputs:
-      username: ${{ steps.create.outputs.username }}
+      sandbox: ${{ steps.lease.outputs.name }}
     steps:
-      - name: Mark tests/scratch pending
+      - name: Mark tests/personas pending
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh api "repos/${{ github.repository }}/statuses/$HEAD_SHA" -f state=pending -f context=tests/scratch \
-            -f description="Creating scratch org" -f target_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" >/dev/null
+          gh api "repos/${{ github.repository }}/statuses/$HEAD_SHA" -f state=pending -f context=tests/personas \
+            -f description="Preparing the story's sandbox" -f target_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" >/dev/null
 
       - name: Check out integration (trusted)
         uses: actions/checkout@v4
@@ -54,37 +62,43 @@ jobs:
 
       - uses: ./.github/actions/setup-sf
 
-      - name: Create scratch org from the Dev Hub
-        id: create
+      - name: Lease (the story's issue holds it; other PRs hold their own)
+        id: lease
         env:
-          SFDX_AUTH_URL_DEV_HUB: ${{ secrets.SFDX_AUTH_URL_DEV_HUB }}
-          SCRATCH_HANDOFF_KEY: ${{ secrets.SCRATCH_HANDOFF_KEY }}
+          GH_TOKEN: ${{ github.token }}
         run: |
-          umask 077
-          printf '%s' "$SFDX_AUTH_URL_DEV_HUB" > devhub.url
-          sf org login sfdx-url --sfdx-url-file devhub.url --alias devhub --set-default-dev-hub >/dev/null
-          rm -f devhub.url
-          sf org create scratch --target-dev-hub devhub --definition-file config/project-scratch-def.json \
-            --alias pr --duration-days 1 --wait 30 --json > create.json
-          USERNAME=$(node -e 'const s=require("fs").readFileSync("create.json","utf8");console.log(JSON.parse(s.slice(s.indexOf("{"))).result.username)')
-          echo "username=$USERNAME" >> "$GITHUB_OUTPUT"
-          # Platform packages (TAF, Nebula Logger; ADR 0001) before any force-app deploy.
-          node scripts/install-packages.mjs --org "$USERNAME"
-          node scripts/auth-url.mjs "$USERNAME" scratch.url
-          openssl enc -aes-256-cbc -pbkdf2 -salt -pass env:SCRATCH_HANDOFF_KEY -in scratch.url -out scratch.enc
-          rm -f scratch.url create.json
-          sf org logout --target-org devhub --no-prompt >/dev/null
+          HOLDER=$(printf '%s' "$HEAD_BRANCH" | sed -nE 's#^feature/([0-9]+)-.*#\1#p')
+          [ -n "$HOLDER" ] || HOLDER=$(gh api "repos/${{ github.repository }}/pulls?state=open&head=${{ github.repository_owner }}:$HEAD_BRANCH" --jq '.[0].number // empty')
+          [ -n "$HOLDER" ] || { echo "No open PR for $HEAD_BRANCH"; exit 1; }
+          node scripts/sandbox-lease.mjs acquire --holder "$HOLDER"
 
-      - uses: actions/upload-artifact@v4
+      - name: No free sandbox
+        if: steps.lease.outputs.name == ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "repos/${{ github.repository }}/statuses/$HEAD_SHA" -f state=pending -f context=tests/personas \
+            -f description="Waiting for a free sandbox; the merge gate retries" >/dev/null
+          exit 1
+
+      - uses: ./.github/actions/prepare-sandbox
         with:
-          name: scratch-handoff
-          path: scratch.enc
-          retention-days: 1
+          sandbox: ${{ steps.lease.outputs.name }}
+          sync: ${{ steps.lease.outputs.new }}
+          username: ${{ vars[format('SANDBOX_USERNAME_{0}', steps.lease.outputs.upper)] }}
+          instance-url: ${{ vars[format('SANDBOX_URL_{0}', steps.lease.outputs.upper)] }}
+          client-id: ${{ secrets[format('SANDBOX_CLIENT_ID_{0}', steps.lease.outputs.upper)] }}
+          jwt-key: ${{ secrets[format('SANDBOX_JWT_KEY_{0}', steps.lease.outputs.upper)] }}
+          handoff-key: ${{ secrets.SCRATCH_HANDOFF_KEY }}
+          artifact: sandbox-handoff
 
   work:
     name: Deploy and test as personas
-    needs: provision
+    needs: lease
     runs-on: ubuntu-latest
+    concurrency:
+      group: sandbox-${{ needs.lease.outputs.sandbox }}
+      cancel-in-progress: false
     permissions:
       contents: read
     outputs:
@@ -111,35 +125,31 @@ jobs:
 
       - uses: actions/download-artifact@v4
         with:
-          name: scratch-handoff
+          name: sandbox-handoff
 
-      - name: Log in to the scratch org
+      - name: Log in to the sandbox (admin and personas, short-lived)
         env:
-          SCRATCH_HANDOFF_KEY: ${{ secrets.SCRATCH_HANDOFF_KEY }}
+          HANDOFF_KEY: ${{ secrets.SCRATCH_HANDOFF_KEY }}
         run: |
           umask 077
-          openssl enc -d -aes-256-cbc -pbkdf2 -pass env:SCRATCH_HANDOFF_KEY -in scratch.enc -out scratch.url
-          sf org login sfdx-url --sfdx-url-file scratch.url --alias pr --set-default >/dev/null
-          rm -f scratch.url scratch.enc
+          openssl enc -d -aes-256-cbc -pbkdf2 -pass env:HANDOFF_KEY -in handover.enc -out handover.json
+          node scripts/sandbox-handover.mjs unpack handover.json
+          rm -f handover.json handover.enc
 
-      - name: Deploy the PR to its scratch org
+      - name: Deploy the PR to the sandbox
         id: deploy
-        run: sf project deploy start --source-dir force-app --target-org pr --wait 30
-
-      - name: Create persona users (config/personas.json)
-        run: node scripts/personas.mjs --org pr --mode scratch
+        run: sf project deploy start --source-dir force-app --target-org agent --test-level NoTestRun --wait 30
 
       - name: Apex tests (this repo's test classes, as personas)
         id: apex
         continue-on-error: true
         run: |
-          # Unlocked packages without a namespace (TAF, Nebula Logger) count as local code: RunLocalTests would run
-          # their hundreds of tests too. Run only the tests this repo owns.
+          # The sandbox also holds the org's other code; run only the tests this repo owns.
           ARGS=()
           for f in $(grep -rli --include='*.cls' '@istest' force-app); do ARGS+=(--class-names "$(basename "$f" .cls)"); done
           mkdir -p results/apex
           [ ${#ARGS[@]} -gt 0 ] || { echo "No Apex tests in force-app"; exit 0; }
-          sf apex run test --target-org pr "${ARGS[@]}" --code-coverage --result-format junit --output-dir results/apex --wait 30
+          sf apex run test --target-org agent "${ARGS[@]}" --code-coverage --result-format junit --output-dir results/apex --wait 30
 
       - name: Playwright acceptance tests, as personas, full evidence
         id: playwright
@@ -150,17 +160,17 @@ jobs:
         run: |
           npm ci --no-fund --no-audit
           npx playwright install --with-deps chromium
-          export SF_BASE_URL=$(node ../../scripts/lightning-url.mjs pr)
+          export SF_BASE_URL=$(node ../../scripts/lightning-url.mjs agent)
           npx playwright test
 
-      - name: Log out of the scratch org
+      - name: Revoke the handed-over sessions
         if: always()
-        run: sf org logout --target-org pr --no-prompt >/dev/null 2>&1 || true
+        run: node scripts/sandbox-handover.mjs revoke
 
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: evidence-scratch
+          name: evidence-sandbox
           path: |
             results/apex
             tests/e2e/results
@@ -170,8 +180,8 @@ jobs:
 
   report:
     name: Post evidence
-    needs: [provision, work]
-    if: always() && needs.provision.result == 'success'
+    needs: [lease, work]
+    if: always() && needs.lease.result != 'skipped'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -186,19 +196,19 @@ jobs:
 
       - uses: actions/download-artifact@v4
         with:
-          name: evidence-scratch
+          name: evidence-sandbox
           path: evidence
         continue-on-error: true
 
-      - name: Evidence comment and tests/scratch status
+      - name: Evidence comment and tests/personas status
         env:
           GH_TOKEN: ${{ github.token }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          SANDBOX: ${{ needs.lease.outputs.sandbox }}
         run: |
           set +e
           node scripts/evidence.mjs --playwright evidence/tests/e2e/results/results.json --apex evidence/results/apex \
-            --title "Evidence: scratch org (tests/scratch)" --run-url "$RUN_URL" > evidence.md
+            --title "Evidence: sandbox ${SANDBOX:-not leased} (tests/personas)" --run-url "$RUN_URL" > evidence.md
           OK=$?
           [ "${{ needs.work.outputs.deploy }}" = "success" ] || OK=1
           [ "${{ needs.work.outputs.apex }}" = "success" ] || OK=1
@@ -206,42 +216,22 @@ jobs:
           cat evidence.md >> "$GITHUB_STEP_SUMMARY"
           # Find the PR by its head branch: commits/{sha}/pulls can answer 200 with an empty body.
           PR=$(gh api "repos/${{ github.repository }}/pulls?state=open&head=${{ github.repository_owner }}:$HEAD_BRANCH" --jq '.[0].number // empty')
-          if [ -n "$PR" ]; then
-            { echo "<!-- evidence:tests/scratch -->"; cat evidence.md; } > evidence-body.md
-            CID=$(gh api "repos/${{ github.repository }}/issues/$PR/comments" --jq '[.[] | select(.body | startswith("<!-- evidence:tests/scratch -->"))][0].id')
+          if [ -n "$PR" ] && [ -n "$SANDBOX" ]; then
+            { echo "<!-- evidence:tests/personas -->"; cat evidence.md; } > evidence-body.md
+            CID=$(gh api "repos/${{ github.repository }}/issues/$PR/comments" --jq '[.[] | select(.body | startswith("<!-- evidence:tests/personas -->"))][0].id')
             if [ -n "$CID" ] && [ "$CID" != "null" ]; then
               gh api -X PATCH "repos/${{ github.repository }}/issues/comments/$CID" -F body=@evidence-body.md >/dev/null
             else
               gh api "repos/${{ github.repository }}/issues/$PR/comments" -F body=@evidence-body.md >/dev/null
             fi
           fi
-          if [ $OK -eq 0 ]; then S=success; D="All tests passed as personas"; else S=failure; D="Deploy or tests failed in the scratch org"; fi
-          gh api "repos/${{ github.repository }}/statuses/$HEAD_SHA" -f state=$S -f context=tests/scratch -f description="$D" -f target_url="$RUN_URL" >/dev/null
-          for id in $(gh api "repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts" --jq '.artifacts[] | select(.name=="scratch-handoff") | .id'); do
+          if [ -z "$SANDBOX" ]; then
+            S=pending; D="Waiting for a free sandbox; the merge gate retries"
+          elif [ $OK -eq 0 ]; then S=success; D="All tests passed as personas in $SANDBOX"
+          else S=failure; D="Deploy or tests failed in $SANDBOX"; fi
+          gh api "repos/${{ github.repository }}/statuses/$HEAD_SHA" -f state=$S -f context=tests/personas -f description="$D" -f target_url="$RUN_URL" >/dev/null
+          for id in $(gh api "repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts" --jq '.artifacts[] | select(.name=="sandbox-handoff") | .id'); do
             gh api -X DELETE "repos/${{ github.repository }}/actions/artifacts/$id" >/dev/null
           done
+          [ -z "$SANDBOX" ] && exit 0
           exit $OK
-
-  cleanup:
-    name: Delete scratch org
-    needs: [provision, work]
-    if: always() && needs.provision.result == 'success'
-    runs-on: ubuntu-latest
-    environment: devhub
-    steps:
-      - name: Check out integration (trusted)
-        uses: actions/checkout@v4
-        with:
-          ref: integration
-      - uses: ./.github/actions/setup-sf
-      - name: Delete the scratch org through the Dev Hub
-        env:
-          SFDX_AUTH_URL_DEV_HUB: ${{ secrets.SFDX_AUTH_URL_DEV_HUB }}
-          SCRATCH_USERNAME: ${{ needs.provision.outputs.username }}
-        run: |
-          umask 077
-          printf '%s' "$SFDX_AUTH_URL_DEV_HUB" > devhub.url
-          sf org login sfdx-url --sfdx-url-file devhub.url --alias devhub >/dev/null
-          rm -f devhub.url
-          sf data delete record --target-org devhub --sobject ActiveScratchOrg --where "SignupUsername='$SCRATCH_USERNAME'" || echo "Scratch org already gone; it expires within a day anyway"
-          sf org logout --target-org devhub --no-prompt >/dev/null

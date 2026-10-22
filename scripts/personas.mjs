@@ -6,6 +6,8 @@
 //
 //   node scripts/personas.mjs --org <alias> --mode scratch
 //   node scripts/personas.mjs --org <alias> --mode jwt     (shared orgs; needs SFDX_CLIENT_ID, JWT_KEY_FILE, INSTANCE_URL)
+//   add --reset-mfa to clear the persona's registered authenticator (agent pool sandboxes): the next sign-in
+//   registers a fresh one, so no MFA secret has to be kept per sandbox (tests/e2e/support/global-setup.ts)
 //
 // Secrets never reach stdout or the job environment: passwords go only to the git-ignored
 // tests/e2e/.auth/persona.env (read by Playwright's global setup), as do frontdoor URLs. Never export them
@@ -21,6 +23,7 @@ import { tmpdir } from 'node:os';
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const args = Object.fromEntries(process.argv.slice(2).reduce((a, v, i, all) => (v.startsWith('--') ? [...a, [v.slice(2), all[i + 1]]] : a), []));
 const org = args.org, mode = args.mode ?? 'scratch';
+const resetMfa = process.argv.includes('--reset-mfa');
 if (!org) throw new Error('--org is required');
 const authDir = join(root, 'tests/e2e/.auth');
 mkdirSync(authDir, { recursive: true, mode: 0o700 });
@@ -100,6 +103,15 @@ for (const p of catalogue) {
   const envFile = join(authDir, 'persona.env');
   const kept = existsSync(envFile) ? readFileSync(envFile, 'utf8').split('\n').filter((l) => l && !l.startsWith(`${envName}=`)) : [];
   writeFileSync(envFile, [...kept, `${envName}=${password}`].join('\n') + '\n', { mode: 0o600 });
+
+  if (resetMfa) {
+    // Supported Apex route (the TwoFactorInfo object needs an extra MFA-in-API permission most admins don't have).
+    const mfa = join(tmpdir(), `mfa-${p.key}.apex`);
+    writeFileSync(mfa, `try { System.UserManagement.deregisterVerificationMethod('${user.Id}', Auth.VerificationMethod.TOTP); } catch (Exception e) {}`);
+    sf('apex', 'run', '-o', org, '-f', mfa);
+    rmSync(mfa);
+    log(`${p.key}: cleared any registered authenticator app`);
+  }
 
   // JWT login comes after the password change: setting a password ends the user's existing sessions.
   if (mode === 'jwt') {

@@ -1,0 +1,8 @@
+{
+  "description": "Agent pool sandboxes (ADR 0003): source-tracked Developer sandboxes leased one per story. Each one's admin login, instance URL and JWT key live in the sandbox-pool GitHub environment (SANDBOX_USERNAME_<NAME>, SANDBOX_URL_<NAME>, SANDBOX_CLIENT_ID_<NAME>, SANDBOX_JWT_KEY_<NAME>). Every lease brings the sandbox up to integration, so where it was copied from doesn't matter.",
+  "sandboxes": [
+    { "name": "agent1", "type": "Developer Pro", "copiedFrom": "QA sandbox" },
+    { "name": "agent2", "type": "Developer", "copiedFrom": "production" },
+    { "name": "agent3", "type": "Developer", "copiedFrom": "production" }
+  ]
+}

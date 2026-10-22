@@ -30,8 +30,9 @@ const scrub = (s: string) => s.replace(/https?:\/\/\S+/g, '<url removed>');
 // Complete it with a random password that is never stored or logged: CI only ever signs in by frontdoor.
 // Salesforce MFA for persona test users in orgs that enforce it (QA). Each persona has an authenticator-app
 // (TOTP) secret in PERSONA_TOTP_<KEY>. If the org asks the persona to register MFA, we register an
-// authenticator app, compute the code ourselves, and save the new secret to .auth/<key>.totp so it can be
-// stored as a secret: in CI that is a one-off that fails loudly, because the secret must persist.
+// authenticator app, compute the code ourselves, and save the new secret to .auth/<key>.totp, which later
+// sign-ins in the same job use. Pool sandboxes clear the registration on every lease (personas.mjs --reset-mfa),
+// so registering there is expected; in QA the secret must persist, so a registration there warns loudly.
 async function handleIdentity(page: import('@playwright/test').Page, key: string, dir: string) {
   const envKey = `PERSONA_TOTP_${key.toUpperCase().replace(/-/g, '_')}`;
   for (let i = 0; i < 8 && /\/_ui\/identity\//.test(page.url()); i++) {
@@ -50,10 +51,11 @@ async function handleIdentity(page: import('@playwright/test').Page, key: string
       writeFileSync(join(dir, `${key}.totp`), secret, { mode: 0o600 });
       await page.locator('input[type="text"], input[type="tel"], input[name*="otp" i], input[id*="code" i]').last().fill(totp(secret));
       await page.locator('input[type="submit"], button[type="submit"], #save').first().click();
-      if (process.env.CI) console.log(`::warning::Registered a new MFA authenticator for persona ${key}; store .auth/${key}.totp as ${envKey}`);
+      if (process.env.CI && process.env.PERSONA_MFA_PERSISTENT) console.log(`::warning::Registered a new MFA authenticator for persona ${key}; store .auth/${key}.totp as ${envKey}`);
     } else {
-      const secret = process.env[envKey];
-      if (!secret) throw new Error(`MFA challenge at ${path} but ${envKey} is not set`);
+      const saved = join(dir, `${key}.totp`);
+      const secret = process.env[envKey] || (existsSync(saved) ? readFileSync(saved, 'utf8').trim() : '');
+      if (!secret) throw new Error(`MFA challenge at ${path} but neither ${envKey} nor .auth/${key}.totp is set`);
       await page.locator('input[type="text"], input[type="tel"], input[name*="otp" i], input[id*="code" i]').last().fill(totp(secret));
       await page.locator('input[type="submit"], button[type="submit"], #save').first().click();
     }
