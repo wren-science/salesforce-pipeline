@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<PermissionSetGroup xmlns="http://soap.sforce.com/2006/04/metadata">
+    <description>Persona: Recruitment Officer. The only way this persona gets access (DES-01, SHR-04). Defined in config/personas.json.</description>
+    <label>Recruitment Officer</label>
+    <permissionSets>Persona_Recruitment_Officer</permissionSets>
+    <status>Updated</status>
+</PermissionSetGroup>

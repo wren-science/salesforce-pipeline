@@ -1,10 +1,15 @@
 name: Deploy to QA
 
-# Gate 3: runs when a promotion PR is merged into qa. The qa environment requires a
-# maintainer's approval before this job starts, and only the qa branch can use it.
+# Every merge to integration deploys to the QA sandbox (our dev org) with sfdx-hardis, then makes QA
+# persona-ready and runs the Playwright regression suite as personas (TST-16, PIPE-11). QA is a shared
+# org: lean evidence only (screenshots; video and trace on failure), sessions logged out (PIPE-14).
+# This workflow runs merged, reviewed code only, so it may hold the QA login.
 on:
   push:
-    branches: [qa]
+    branches: [integration]
+    paths-ignore:
+      - "docs/**"
+      - "*.md"
   workflow_dispatch:
 
 permissions:
@@ -16,9 +21,18 @@ concurrency:
 
 jobs:
   deploy:
-    name: Deploy to QA sandbox
+    name: Deploy to QA and run persona regression
     runs-on: ubuntu-latest
     environment: qa
+    env:
+      CI: "true"
+      ORG_ALIAS: integration
+      CONFIG_BRANCH: integration
+      CI_COMMIT_REF_NAME: integration
+      TARGET_USERNAME: ${{ vars.TARGET_USERNAME }}
+      INSTANCE_URL: ${{ vars.INSTANCE_URL }}
+      SFDX_DISABLE_FLOW_DIFF: "true"
+      FORCE_COLOR: "1"
     steps:
       - uses: actions/checkout@v4
         with:
@@ -26,31 +40,69 @@ jobs:
 
       - uses: ./.github/actions/setup-sf
 
+      - name: Generate the manifest from force-app (PIPE-05)
+        run: sf project generate manifest --source-dir force-app --name package --output-dir manifest
+
       - name: Deploy with sfdx-hardis
         env:
-          CI: "true"
-          ORG_ALIAS: qa
-          CONFIG_BRANCH: qa
-          CI_COMMIT_REF_NAME: qa
-          SFDX_CLIENT_ID_QA: ${{ secrets.SFDX_CLIENT_ID_QA }}
-          SFDX_CLIENT_CERT_QA: ${{ secrets.SFDX_CLIENT_CERT_QA }}
-          TARGET_USERNAME: ${{ vars.TARGET_USERNAME }}
-          INSTANCE_URL: ${{ vars.INSTANCE_URL }}
-          SFDX_DISABLE_FLOW_DIFF: "true"
-          FORCE_COLOR: "1"
+          SFDX_CLIENT_ID_INTEGRATION: ${{ secrets.SFDX_CLIENT_ID_INTEGRATION }}
+          SFDX_CLIENT_CERT_INTEGRATION: ${{ secrets.SFDX_CLIENT_CERT_INTEGRATION }}
         run: |
-          if [ -z "$(find force-app -type f ! -name .gitkeep -print -quit)" ]; then
-            echo "force-app is empty; nothing to deploy"; exit 0
-          fi
           TEST_LEVEL=$(bash .github/scripts/test-level.sh)
           echo "Test level: $TEST_LEVEL"
           sf hardis auth login
           sf hardis project deploy smart --testlevel "$TEST_LEVEL"
 
-      - name: Upload sfdx-hardis reports
+      - name: Make QA persona-ready (JWT login as each persona)
+        env:
+          SFDX_CLIENT_ID: ${{ secrets.SFDX_CLIENT_ID_INTEGRATION }}
+          SFDX_CLIENT_CERT: ${{ secrets.SFDX_CLIENT_CERT_INTEGRATION }}
+        run: |
+          umask 077
+          printf '%s\n' "$SFDX_CLIENT_CERT" > "$RUNNER_TEMP/jwt.key"
+          sf org login jwt --client-id "$SFDX_CLIENT_ID" --jwt-key-file "$RUNNER_TEMP/jwt.key" --username "$TARGET_USERNAME" --instance-url "$INSTANCE_URL" --alias qa-admin >/dev/null
+          JWT_KEY_FILE="$RUNNER_TEMP/jwt.key" node scripts/personas.mjs --org qa-admin --mode jwt
+          rm -f "$RUNNER_TEMP/jwt.key"
+
+      - name: Playwright regression in QA, as personas
+        id: playwright
+        continue-on-error: true
+        working-directory: tests/e2e
+        env:
+          EVIDENCE: lean
+        run: |
+          npm ci --no-fund --no-audit
+          npx playwright install --with-deps chromium
+          export SF_BASE_URL=$(sf org display --target-org qa-admin --json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s.slice(s.indexOf("{"))).result.instanceUrl.replace(".my.salesforce.com",".lightning.force.com")))')
+          npx playwright test
+
+      - name: Log out of QA
         if: always()
-        uses: actions/upload-artifact@v4
+        run: |
+          for a in $(sf alias list --json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{for(const r of JSON.parse(s.slice(s.indexOf("{"))).result)console.log(r.alias)})'); do
+            sf org logout --target-org "$a" --no-prompt >/dev/null 2>&1 || true
+          done
+
+      - name: Evidence summary
+        if: always()
+        run: |
+          node scripts/evidence.mjs --playwright tests/e2e/results/results.json \
+            --title "QA regression after deploy (${GITHUB_SHA::7})" \
+            --run-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" >> "$GITHUB_STEP_SUMMARY" || true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
         with:
-          name: hardis-report
-          path: hardis-report
+          name: evidence-qa
+          path: |
+            hardis-report
+            tests/e2e/results
+            tests/e2e/playwright-report
+            tests/e2e/test-results
           if-no-files-found: ignore
+
+      - name: Fail if the regression failed
+        if: steps.playwright.outcome != 'success'
+        run: |
+          echo "::error::Persona regression failed in QA. A bug must be raised before the next promotion."
+          exit 1

@@ -3,8 +3,8 @@ name: Validate against QA
 # Check-only deploy of a PR's Salesforce source to the QA sandbox.
 #
 # Why workflow_run: this file always runs from the integration branch, never from the
-# PR, so a PR can't change what runs while the QA login is loaded. Only force-app/ and
-# manifest/ are taken from the PR; config and scripts come from integration.
+# PR, so a PR can't change what runs while the QA login is loaded. Only force-app/ is taken from the
+# PR; config and scripts come from integration, and the manifest is generated from force-app (PIPE-05).
 # The result is posted back to the PR commit as the status "validate/qa", which branch
 # protection requires.
 on:
@@ -53,11 +53,14 @@ jobs:
       - name: Take only Salesforce source from the PR
         run: |
           git fetch --no-tags origin "$HEAD_SHA"
-          rm -rf force-app manifest
-          git checkout "$HEAD_SHA" -- force-app manifest
+          rm -rf force-app
+          git checkout "$HEAD_SHA" -- force-app
           git status --short | head -50
 
       - uses: ./.github/actions/setup-sf
+
+      - name: Generate the manifest from force-app (PIPE-05)
+        run: sf project generate manifest --source-dir force-app --name package --output-dir manifest
 
       - name: Check-only deploy with sfdx-hardis
         env:

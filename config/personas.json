@@ -1,0 +1,22 @@
+{
+  "$comment": "Persona catalogue. One sample persona for now; the full persona strategy (Persona Access Strategy, User Security Model Standard) will replace it. A persona is implemented as profile + permission set group + persona public group (docs/standards/06 §6.1, 08 §1). Every test runs as a persona built from this file (TST-16).",
+  "personas": [
+    {
+      "key": "recruitment-officer",
+      "name": "Recruitment Officer",
+      "description": "Works prospective-student enquiries: captures and qualifies Leads, reads applicants and applications.",
+      "profile": "Persona Base",
+      "permissionSetGroups": [
+        "Recruitment_Officer"
+      ],
+      "user": {
+        "firstName": "Riley",
+        "lastName": "Recruiter",
+        "alias": "rrecr",
+        "emailLocalPart": "admin+persona-recruitment-officer"
+      },
+      "draft": true,
+      "publicGroup": "Persona_Recruitment_Officer"
+    }
+  ]
+}

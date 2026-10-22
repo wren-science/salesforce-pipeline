@@ -42,4 +42,4 @@ Suggested order: #4 → #5 → #6 → #7 → #8, then the rest in any order.
 The QA sandbox runs NPSP for fundraising, and NPSP has its own Account, Contact, Opportunity and lead
 conversion behaviour. This repo stays out of its way: no NPSP metadata in `force-app`, new behaviour
 scoped to the Student Application record type, and every plan checks for conflicts
-(`NPO-SALES-005`). Scratch orgs don't have NPSP, so tests must pass in both (`NPO-TEST-003`).
+(DES-12, PIPE-04). Scratch orgs don't have NPSP, so tests must pass in both.

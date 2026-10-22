@@ -1,35 +1,53 @@
-# CI workflows (Phase 1: pipeline without AI)
+# CI workflows
 
-| Workflow | Runs on | Secrets | Does |
+| Workflow | Runs on | Holds | Does |
 | --- | --- | --- | --- |
-| `pr-checks.yml` | Every PR into `integration` or `qa` | None | NPSP-dependency check (`NPO-META-002`), credential scan (`NPO-SEC-003`), Salesforce Code Analyzer (`NPO-APEX-010`) |
-| `validate-qa.yml` | When PR checks finish (same-repo PRs only) | `qa-validate` environment | sfdx-hardis check-only deploy of the PR's `force-app` to QA; posts the `validate/qa` status on the PR |
-| `deploy-qa.yml` | Push to `qa` (a merged promotion PR) | `qa` environment, needs a maintainer's approval (Gate 3) | sfdx-hardis deploy to QA |
-| `publish-wiki.yml` | Push to `integration` touching `docs/` | None | Regenerates the wiki |
+| `pr-checks.yml` | Every PR into `integration` | Nothing | Metadata checks (DM-03, QG-07), NPSP guard (PIPE-04), `.github/` guard for story branches (PIPE-08), secret scan (QG-08), Code Analyzer v5 (QG-03) |
+| `pr-tests.yml` | When PR checks pass (same-repo PRs) | Dev Hub login in `provision`/`cleanup` only | Scratch org per PR, persona users, Apex (`RunLocalTests`) and Playwright as personas (TST-16), evidence comment, status `tests/scratch` |
+| `validate-qa.yml` | When PR checks pass (same-repo PRs) | QA check-only login | sfdx-hardis check-only deploy of the PR's `force-app` to QA, status `validate/qa` |
+| `deploy-qa.yml` | Every merge to `integration` | QA login | sfdx-hardis deploy to the QA sandbox, persona provisioning by JWT, Playwright regression as personas |
+| `publish-wiki.yml` | Push to `integration` touching `docs/` | Nothing | Regenerates the wiki |
 
-## Why validation is split in two
+## Trust boundaries
 
-A pull request can change any file, including workflows. If the QA login were available to a
-workflow that runs from the PR, the PR could print it. So `pr-checks.yml` (from the PR) gets no
-secrets, and `validate-qa.yml` runs from `integration`'s copy of itself after `pr-checks.yml` passes.
-It takes only `force-app/` and `manifest/` from the PR; config and scripts come from `integration`.
-PRs from forks never reach it.
+A pull request can change any file, so PR code never runs next to a shared login (PIPE-09):
+
+- `pr-checks.yml` runs the PR's own workflow file but has no secrets.
+- `pr-tests.yml` and `validate-qa.yml` run from `integration`'s copy of themselves (`workflow_run`). They take only
+  `force-app/`, `tests/e2e/specs/` and `config/personas.json` from the PR.
+- In `pr-tests.yml` the Dev Hub login lives only in `provision` and `cleanup`, on their own runners. The `work`
+  job that runs PR code gets just the throwaway scratch org's login, encrypted in transit
+  (`SCRATCH_HANDOFF_KEY`) and deleted after use. Only the trusted `report` job can write statuses and comments.
+- Fork PRs never reach the trusted workflows.
+
+## Personas in CI
+
+`scripts/personas.mjs` makes any org persona-ready from `config/personas.json`: the persona's profile, its
+permission set group and its persona public group (06 §6.1), then a one-time frontdoor login for Playwright.
+Scratch orgs use `sf org create user`; QA uses the data API and a JWT login as the persona (the persona also
+holds `Salesforce_Pipeline_CI`, which only pre-authorises the CI app). Each Playwright project is a persona.
 
 ## Which tests run
 
-QA also holds Apex from other projects, so we never run all local tests there.
-`.github/scripts/test-level.sh` picks `RunRepositoryTests` when `force-app` has Apex test classes
-(only this repo's tests run), and `NoTestRun` when it has none.
+In scratch orgs, all local tests. In QA, which also holds other projects' Apex, `.github/scripts/test-level.sh`
+picks `RunRepositoryTests` (this repo's tests only) or `NoTestRun` when there are none.
 
 ## Environments
 
-| Environment | Branches allowed | Approval | Holds |
+| Environment | Branches | Approval | Holds |
 | --- | --- | --- | --- |
-| `qa-validate` | `integration` (where `validate-qa.yml` runs) | None | `SFDX_CLIENT_ID_INTEGRATION`, `SFDX_CLIENT_CERT_INTEGRATION`, `TARGET_USERNAME`, `INSTANCE_URL` |
-| `qa` | `qa` | Maintainer (Gate 3) | `SFDX_CLIENT_ID_QA`, `SFDX_CLIENT_CERT_QA`, `TARGET_USERNAME`, `INSTANCE_URL` |
-| `devhub` | `integration` | None | `SFDX_AUTH_URL_DEV_HUB` (Phase 3 provisioner) |
+| `qa` | `integration` | None (QA is the dev org) | `SFDX_CLIENT_ID_INTEGRATION`, `SFDX_CLIENT_CERT_INTEGRATION`, `TARGET_USERNAME`, `INSTANCE_URL` |
+| `qa-validate` | `integration` | None | The same QA login, for check-only validation |
+| `devhub` | `integration` | None | `SFDX_AUTH_URL_DEV_HUB` |
+| `agents` | `integration` | None | `CLAUDE_CODE_OAUTH_TOKEN` |
 
-## Tool versions
+## Tool versions (PIPE-16)
 
-Pinned in `.github/actions/setup-sf/action.yml`: Salesforce CLI 2.154.4, sfdx-hardis 8.15.0, Code
-Analyzer 5.16.0. Bump them deliberately, in their own PR.
+Salesforce CLI 2.154.4, sfdx-hardis 8.15.0, Code Analyzer 5.16.0 (`.github/actions/setup-sf`); Playwright 1.64.0
+and @axe-core/playwright 4.13.0 (`tests/e2e/package.json`).
+
+## Not yet
+
+- **Merge queue:** not used yet; the queue needs every check to also run on `merge_group` events.
+- **Delta deployments:** the repo is small, so every deploy sends the full `force-app`. Switch on
+  `useDeltaDeployment` when deploys get slow.
