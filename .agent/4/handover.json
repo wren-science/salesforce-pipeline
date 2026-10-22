@@ -1,0 +1,126 @@
+{
+  "version": 2,
+  "issue": 4,
+  "stage": "review-required",
+  "role": "repair",
+  "summary": "Program catalogue built declaratively (DES-02): Program__c (Public Read/Write internal OWD, Private external) with Program_Code__c (Text(20), required, unique, case-insensitive, External Id), restricted Study_Level__c and Faculty__c picklists, Active__c (default true); Active_Programs and All list views; layouts; Programs tab in the Recruitment app; Persona_Recruitment_Officer grants Program Read/Create/Edit (no Delete), FLS and tab visibility. ADR 0002 records the decision. Rebased onto integration after #20: the permission set keeps every grant from both sides. Program__c is registered in config/test-data.json by its E2E- codes for the pipeline clean-up (PIPE-15, arch-1). All 24 repo Apex tests and 10 Playwright tests pass together in the agent sandbox.",
+  "standards": ["DES-01", "DES-02", "DES-09", "DES-11", "DM-01", "DM-02", "DM-03", "DM-04", "DM-06", "DM-07", "DM-08", "SHR-01", "SHR-02", "SHR-07", "SHR-08", "SHR-15", "APX-21", "APX-22", "TST-01", "TST-03", "TST-16", "TST-17", "PIPE-06", "PIPE-11", "PIPE-12", "PIPE-14", "PIPE-15", "RET-01"],
+  "adrs": ["docs/adr/0002-program-custom-object.md"],
+  "tests": {
+    "apex": ["ProgramCatalogueTest", "LeadSourceDetailAccessTest"],
+    "playwright": ["tests/e2e/specs/4-program-catalogue.spec.ts", "tests/e2e/specs/persona-smoke.spec.ts"]
+  },
+  "acceptanceCriteria": [
+    {
+      "id": "AC1",
+      "status": "passed",
+      "evidence": "ProgramCatalogueTest.shouldLetRecruitmentOfficerCreateProgramWithAllFields, shouldOfferExactlyTheThreeStudyLevelsAsRestrictedPicklist, shouldOfferExactlyTheFiveFacultiesAsRestrictedPicklist, shouldDefaultNewProgramsToActive, shouldCreate200ProgramsInOneTransaction; Playwright '#4 AC1: Recruitment Officer creates a Program with code, study level, faculty and active'"
+    },
+    {
+      "id": "AC2",
+      "status": "passed",
+      "evidence": "ProgramCatalogueTest.shouldMakeProgramCodeAUniqueRequiredExternalId, shouldRejectDuplicateProgramCode, shouldRejectDuplicateProgramCodeInDifferentCase, shouldRequireProgramCode; Playwright '#4 AC2: saving a duplicate Program Code shows a duplicate-value error'"
+    },
+    {
+      "id": "AC3",
+      "status": "passed",
+      "evidence": "ProgramCatalogueTest.shouldLetRecruitmentOfficerEditAProgramCreatedBySomeoneElse, shouldGrantProgramAccessThroughPermissionSetNotProfile, shouldRefuseProgramDeleteToRecruitmentOfficer, shouldRefuseProgramCreationToMinimumAccessPersona, shouldRefuseProgramReadToMinimumAccessPersona; Playwright '#4 AC3: Recruitment Officer edits a Program's study level and active flag', '#4 AC3: Recruitment Officer cannot delete a Program (denial, TST-03)'"
+    },
+    {
+      "id": "AC4",
+      "status": "passed",
+      "evidence": "ProgramCatalogueTest.shouldShipActiveProgramsListViewVisibleToRecruitmentOfficer, shouldShowProgramsTabInRecruitmentApp; Playwright '#4 AC4: Programs tab opens from the Recruitment app and the Active Programs list shows only active programs'"
+    }
+  ],
+  "testChanges": [
+    {
+      "test": "TestDataFactory.createPrograms; ProgramCatalogueTest.shouldLetRecruitmentOfficerEditAProgramCreatedBySomeoneElse",
+      "change": "Setup data and the system-side read-back use SYSTEM_MODE explicitly (APX-22): Apex in this org runs in user mode by default and the test runner holds no FLS on Program fields.",
+      "whyNotWeaker": "Only setup and verification run in system mode; every persona action still runs in user mode, so CRUD/FLS is still exercised."
+    },
+    {
+      "test": "ProgramCatalogueTest.shouldGrantProgramAccessThroughPermissionSetNotProfile",
+      "change": "Field and object describes are read inside System.runAs, with SObjectDescribeOptions.DEFERRED (QG-03).",
+      "whyNotWeaker": "Outside runAs the describes reported the admin's access; inside they report the persona's, which is what the test claims. Assertions are unchanged."
+    },
+    {
+      "test": "ProgramCatalogueTest.shouldRefuseProgramDeleteToRecruitmentOfficer, shouldRefuseProgramCreationToMinimumAccessPersona, shouldRefuseProgramReadToMinimumAccessPersona",
+      "change": "Each catches only the exception user mode throws (TypeException 'DELETE not allowed on Program__c'; SecurityException 'Access to entity Program__c denied') and asserts its message (tests-3).",
+      "whyNotWeaker": "Stricter: before, any DmlException, SecurityException or NoAccessException passed as a refusal; now a failure for another reason fails the test. Exceptions recorded in .agent/4/diagnostics/repair-3-denial-exceptions.txt."
+    },
+    {
+      "test": "ProgramCatalogueTest.shouldShowProgramsTabInRecruitmentApp",
+      "change": "Checks, as the persona, that AppDefinition Recruitment is visible and its AppTabMember includes Program__c, instead of Schema.describeTabs(), which lists Classic apps only.",
+      "whyNotWeaker": "describeTabs could not see a Lightning app at all; the new query proves the tab is in the app the persona opens, plus the permission set tab setting."
+    },
+    {
+      "test": "#4 AC2: saving a duplicate Program Code shows a duplicate-value error",
+      "change": "One locator asserts the whole message 'duplicate value found: Program Code duplicates value' instead of two separate getByText checks (tests-1).",
+      "whyNotWeaker": "Stricter: the old field-name check also matched the form's own Program Code label and could not fail."
+    },
+    {
+      "test": "#4 AC4: Programs tab opens from the Recruitment app and the Active Programs list shows only active programs",
+      "change": "Renamed from 'Programs tab opens the Active Programs list showing only active programs' to what it proves (tests-2); repair 2 made it load every list row before asserting.",
+      "whyNotWeaker": "Steps and assertions unchanged by the rename; loading every row makes the inactive Program's absence a check against the whole list."
+    },
+    {
+      "test": "#4 AC1, AC2, AC3 Playwright helpers",
+      "change": "Record URL accepts /lightning/r/<id>/view; picklist selection retries then verifies the value; view-mode Active is read from its Details field as True/False.",
+      "whyNotWeaker": "Each change verifies the end state (chosen value, saved field) rather than a UI detail that differs between Lightning renderings."
+    }
+  ],
+  "openQuestions": [
+    {
+      "question": "RET-01 (arch-2): a follow-up issue for the Program__c Data_Retention_Policy__mdt row (Retain Indefinitely, ADR 0002 / #4) should be opened and cited in ADR 0002's Lifecycle bullet. The repair agent cannot open issues.",
+      "owner": "person"
+    }
+  ],
+  "findings": [
+    {
+      "id": "arch-1",
+      "status": "fixed",
+      "note": "#40 put the pipeline-owned clean-up on integration. Program__c is registered in config/test-data.json (Program_Code__c LIKE 'E2E-%'), so it is removed after every QA and sandbox run; the persona still has no Delete (AC3, SHR-08). Spec comment updated."
+    },
+    {
+      "id": "arch-2",
+      "status": "disputed",
+      "note": "The deferral stands (accepted in plan and ADR 0002). Opening a follow-up issue is outside the repair agent's tools; recorded as an open question for a person."
+    },
+    {
+      "id": "arch-3",
+      "status": "fixed",
+      "note": "Handover rewritten as version 2 without scratchOrg and attempts, and validated with agent-records.mjs."
+    },
+    {
+      "id": "sec-1",
+      "status": "fixed",
+      "note": "ADR 0002 Access bullet now says no sharing recalculation is needed (new object, no rows or share rows) and a later move to Private needs its own ADR."
+    },
+    {
+      "id": "sec-2",
+      "status": "fixed",
+      "note": "E2E Programs are now removed by the pipeline clean-up (config/test-data.json, #40); Delete not granted to the persona."
+    },
+    {
+      "id": "tests-1",
+      "status": "fixed",
+      "note": "AC2 asserts the whole duplicate message in one locator, so the form label no longer satisfies it."
+    },
+    {
+      "id": "tests-2",
+      "status": "fixed",
+      "note": "AC4 renamed to '#4 AC4: Programs tab opens from the Recruitment app and the Active Programs list shows only active programs'."
+    },
+    {
+      "id": "tests-3",
+      "status": "fixed",
+      "note": "Denial tests catch only the observed exception type and assert its message; read denial tightened the same way."
+    },
+    {
+      "id": "tests-4",
+      "status": "fixed",
+      "note": "Handover is version 2 with structured testChanges, owned openQuestions and findings; validated."
+    }
+  ],
+  "next": "reviewers; a person opens the RET-01 follow-up issue (arch-2)"
+}

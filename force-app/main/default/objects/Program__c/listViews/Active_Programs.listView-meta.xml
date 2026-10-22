@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ListView xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Active_Programs</fullName>
+    <columns>NAME</columns>
+    <columns>Program_Code__c</columns>
+    <columns>Study_Level__c</columns>
+    <columns>Faculty__c</columns>
+    <filterScope>Everything</filterScope>
+    <filters>
+        <field>Active__c</field>
+        <operation>equals</operation>
+        <value>1</value>
+    </filters>
+    <label>Active Programs</label>
+</ListView>

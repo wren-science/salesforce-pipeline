@@ -13,4 +13,5 @@ a person accepts it. Link the ADR from the story and the PR.
 | ADR | Decision | Status |
 |---|---|---|
 | [0001](0001-platform-packages.md) | Trigger Actions Framework and Nebula Logger as unlocked platform packages | Accepted |
+| [0002](0002-program-custom-object.md) | Program (`Program__c`) custom object for the course catalogue, Public Read/Write OWD | Accepted |
 | [0003](0003-agent-pool-sandboxes.md) | Agents and PR tests work in a pool of source-tracked Developer sandboxes | Accepted |

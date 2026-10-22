@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Study_Level__c</fullName>
+    <description>The level of study the program leads to. Restricted picklist (DM-08); value API names are stable codes. Consumers: Recruitment Officers now; enquiry and application stories (#5, #8, #9) later.</description>
+    <inlineHelpText>The level of study: undergraduate, postgraduate coursework or research.</inlineHelpText>
+    <label>Study Level</label>
+    <required>false</required>
+    <securityClassification>Public</securityClassification>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>Undergraduate</fullName>
+                <default>false</default>
+                <label>Undergraduate</label>
+            </value>
+            <value>
+                <fullName>Postgraduate_Coursework</fullName>
+                <default>false</default>
+                <label>Postgraduate coursework</label>
+            </value>
+            <value>
+                <fullName>Research</fullName>
+                <default>false</default>
+                <label>Research</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>
