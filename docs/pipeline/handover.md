@@ -7,14 +7,14 @@ runs and the committed `.agent/handover.json`.
 
 | Label | Set by | Meaning |
 | --- | --- | --- |
-| `agent:plan` | Human | Please plan this issue |
-| `agent:planned` | Planner | Plan posted; waiting for Gate 1 |
-| `agent:approved` | Human (Gate 1) | Plan accepted; start development |
+| `agent:plan` | Backlog owner | Please plan this issue |
+| `agent:planned` | Planner | Plan posted |
+| `agent:approved` | Planner (low risk) or a person | Plan accepted; start development |
 | `agent:developing` | Developer | Work in progress on a draft PR |
 | `agent:review-required` | Developer / Validate | Checks passed; reviewers may start |
 | `agent:rework-required` | Reviewer | Blocking findings; developer must respond |
-| `human:approval-required` | Any agent | Stopped: needs a person (ambiguity, conflict, retry limit) |
-| `release:integration` | Merge workflow | Merged to `integration` |
+| `human:approval-required` | Any agent, merge gate | Stopped: needs a person (ambiguity, conflict, retry limit); never auto-merged |
+| `human:review-wanted` | Anyone | A person wants to review: the merge gate waits for their approval |
 | `release:qa-ready` | Release | Promotion PR and evidence pack ready; waiting for Gate 3 |
 | `release:qa-deployed` | Deploy workflow | Deployed to QA |
 
