@@ -4,6 +4,12 @@ inputs:
   code-analyzer:
     description: Also install Salesforce Code Analyzer
     default: "false"
+  merge-driver:
+    description: >
+      Also install sf-git-merge-driver 2.0.2 and register it in this checkout, so git resolves most
+      Salesforce XML conflicts (permission sets, profiles, labels) on its own during a rebase. sfdx-hardis
+      recommends it for story PR conflicts.
+    default: "false"
 runs:
   using: composite
   steps:
@@ -20,5 +26,9 @@ runs:
         echo y | sf plugins install sfdx-hardis@8.15.0
         if [ "${{ inputs.code-analyzer }}" = "true" ]; then
           echo y | sf plugins install code-analyzer@5.16.0
+        fi
+        if [ "${{ inputs.merge-driver }}" = "true" ]; then
+          echo y | sf plugins install sf-git-merge-driver@2.0.2
+          sf git merge driver install
         fi
         sf plugins
