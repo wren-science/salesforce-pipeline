@@ -15,12 +15,20 @@ body:
     validations:
       required: true
   - type: textarea
+    id: personas
+    attributes:
+      label: Personas (DES-01)
+      description: Which personas from config/personas.json this story serves. Each acceptance criterion below should say which persona performs it.
+      placeholder: Recruitment Officer
+    validations:
+      required: true
+  - type: textarea
     id: acceptance
     attributes:
       label: Acceptance criteria
-      description: Numbered, each one testable. Each becomes at least one test.
+      description: Numbered, each one testable, each naming its persona. Each becomes an Apex test and a Playwright test run as that persona.
       placeholder: |
-        1. When ..., then ...
+        1. As a Recruitment Officer, when ..., then ...
         2. ...
     validations:
       required: true
