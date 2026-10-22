@@ -31,4 +31,16 @@ public class TestDataFactory {
         Database.insert(programs, AccessLevel.SYSTEM_MODE);
         return programs;
     }
+
+    /**
+     * Unsaved Leads (#5) with the required fields only: a unique Last Name per record and a Company.
+     * Tests set the fields they are about (enquiry details, source) themselves.
+     */
+    public static List<Lead> buildLeads(Integer count, String lastNamePrefix) {
+        List<Lead> result = new List<Lead>();
+        for (Integer i = 0; i < count; i++) {
+            result.add(new Lead(LastName = lastNamePrefix + '-' + i, Company = 'Prospective student'));
+        }
+        return result;
+    }
 }

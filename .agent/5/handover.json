@@ -1,0 +1,58 @@
+{
+  "version": 2,
+  "issue": 5,
+  "stage": "tests-written",
+  "role": "test-writer",
+  "summary": "Tests written first for the enquiry details on Lead, from the approved plan and its decisions. Apex LeadEnquiryDetailsTest (14 methods, all as personas) covers the four fields, their restricted values (Study Level equal to Program's, Domestic/International, the six agreed intakes), an optional lookup filter to active Programs, the persona permission set grants, a 200-Lead user-mode insert and Minimum Access denials. TestDataFactory gains buildLeads (plan item 7). Playwright 5-enquiry-details.spec.ts has one test per AC in the recruitment-officer project. Nothing is built yet, so every test is expected to fail or not compile until the developer adds the metadata.",
+  "standards": ["DES-01", "DES-04", "DM-08", "APX-21", "APX-22", "APX-58", "SHR-15", "TST-01", "TST-03", "TST-05", "TST-06", "TST-12", "TST-16", "TST-17", "TST-18", "PIPE-11", "PIPE-12", "PIPE-14", "PIPE-15"],
+  "adrs": [],
+  "tests": {
+    "apex": ["LeadEnquiryDetailsTest"],
+    "playwright": ["tests/e2e/specs/5-enquiry-details.spec.ts"]
+  },
+  "acceptanceCriteria": [
+    {
+      "id": "AC1",
+      "status": "not-built",
+      "evidence": "LeadEnquiryDetailsTest.shouldLetRecruitmentOfficerCreateLeadWithEnquiryDetails, shouldOfferExactlyTheStudyLevelsOfferedOnPrograms, shouldOfferDomesticAndInternationalCitizenshipOnly, shouldOfferTheAgreedPreferredIntakes, shouldMakeProgramOfInterestAnOptionalLookupToProgram, shouldRejectUnknownCitizenshipStatus, shouldRejectAnIntakeOutsideTheAgreedList; Playwright '#5 AC1: Recruitment Officer records study level, citizenship, preferred intake and program on a new Lead'"
+    },
+    {
+      "id": "AC2",
+      "status": "not-built",
+      "evidence": "LeadEnquiryDetailsTest.shouldFilterProgramOfInterestWithAnOptionalLookupFilter, shouldAcceptActiveProgramOfInterest, shouldKeepLeadEditableAfterItsProgramIsDeactivated; Playwright '#5 AC2: Program of Interest offers active programs and not inactive ones'"
+    },
+    {
+      "id": "AC3",
+      "status": "not-built",
+      "evidence": "LeadEnquiryDetailsTest.shouldGrantEnquiryFieldsThroughPermissionSetNotProfile; Playwright '#5 AC3: Lead page shows the enquiry details section to the Recruitment Officer' (opens the Lead from the Recruitment app, plan decision 4)"
+    },
+    {
+      "id": "AC4",
+      "status": "not-built",
+      "evidence": "LeadEnquiryDetailsTest.shouldCreate200LeadsWithEnquiryDetailsInOneTransaction (user mode, the API's CRUD/FLS path, as the persona per plan decision 1); Playwright '#5 AC4: a Lead created through the API with all four fields shows them on the Lead page'"
+    }
+  ],
+  "testChanges": [
+    {
+      "test": "LeadEnquiryDetailsTest AC2 methods",
+      "change": "The plan's shouldRejectInactiveProgramOfInterest (FIELD_FILTER_VALIDATION_EXCEPTION) is replaced by shouldFilterProgramOfInterestWithAnOptionalLookupFilter, and shouldKeepLeadEditableAfterItsProgramIsDeactivated asserts the save succeeds, because plan decision 6 made the filter optional.",
+      "whyNotWeaker": "An optional filter is not enforced on save, so the rejection test could never pass; the describe test proves the filter exists and is optional, and Playwright AC2 proves the lookup offers only active programs."
+    },
+    {
+      "test": "Playwright AC3",
+      "change": "Checks the 'Enquiry details' section and the four fields' edit buttons on the Lead page opened from the Recruitment app, not a Persona Base layout assignment (plan decision 4).",
+      "whyNotWeaker": "It asserts what the persona sees, whichever of Dynamic Forms or a layout through the record page the developer uses."
+    }
+  ],
+  "openQuestions": [
+    {
+      "question": "The Minimum Access denial tests expect System.SecurityException \"Access to entity 'Lead' denied\", inferred from #4's observed Program__c denial (.agent/4/diagnostics). The test writer has no org access; the developer must confirm it in the sandbox and record any difference in testChanges.",
+      "owner": "pipeline"
+    },
+    {
+      "question": "Playwright setup seeds Programs and the AC3/AC4 Leads with anonymous Apex in SYSTEM_MODE, because the pipeline identity has no FLS on the new fields. AC4's API call is therefore not made as the persona (no persona API session); the persona-level proof is the Apex bulk test.",
+      "owner": "pipeline"
+    }
+  ],
+  "next": "developer"
+}
