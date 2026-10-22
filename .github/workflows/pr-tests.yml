@@ -129,12 +129,17 @@ jobs:
       - name: Create persona users (config/personas.json)
         run: node scripts/personas.mjs --org pr --mode scratch
 
-      - name: Apex tests (all local tests, as personas)
+      - name: Apex tests (this repo's test classes, as personas)
         id: apex
         continue-on-error: true
         run: |
+          # Unlocked packages without a namespace (TAF, Nebula Logger) count as local code: RunLocalTests would run
+          # their hundreds of tests too. Run only the tests this repo owns.
+          ARGS=()
+          for f in $(grep -rli --include='*.cls' '@istest' force-app); do ARGS+=(--class-names "$(basename "$f" .cls)"); done
           mkdir -p results/apex
-          sf apex run test --target-org pr --test-level RunLocalTests --code-coverage --result-format junit --output-dir results/apex --wait 30
+          [ ${#ARGS[@]} -gt 0 ] || { echo "No Apex tests in force-app"; exit 0; }
+          sf apex run test --target-org pr "${ARGS[@]}" --code-coverage --result-format junit --output-dir results/apex --wait 30
 
       - name: Playwright acceptance tests, as personas, full evidence
         id: playwright
@@ -202,12 +207,12 @@ jobs:
           # Find the PR by its head branch: commits/{sha}/pulls can answer 200 with an empty body.
           PR=$(gh api "repos/${{ github.repository }}/pulls?state=open&head=${{ github.repository_owner }}:$HEAD_BRANCH" --jq '.[0].number // empty')
           if [ -n "$PR" ]; then
-            BODY="<!-- evidence:tests/scratch -->"$'\n'"$(cat evidence.md)"
+            { echo "<!-- evidence:tests/scratch -->"; cat evidence.md; } > evidence-body.md
             CID=$(gh api "repos/${{ github.repository }}/issues/$PR/comments" --jq '[.[] | select(.body | startswith("<!-- evidence:tests/scratch -->"))][0].id')
             if [ -n "$CID" ] && [ "$CID" != "null" ]; then
-              gh api -X PATCH "repos/${{ github.repository }}/issues/comments/$CID" -f body="$BODY" >/dev/null
+              gh api -X PATCH "repos/${{ github.repository }}/issues/comments/$CID" -F body=@evidence-body.md >/dev/null
             else
-              gh api "repos/${{ github.repository }}/issues/$PR/comments" -f body="$BODY" >/dev/null
+              gh api "repos/${{ github.repository }}/issues/$PR/comments" -F body=@evidence-body.md >/dev/null
             fi
           fi
           if [ $OK -eq 0 ]; then S=success; D="All tests passed as personas"; else S=failure; D="Deploy or tests failed in the scratch org"; fi
