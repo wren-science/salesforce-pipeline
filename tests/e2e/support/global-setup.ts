@@ -3,6 +3,22 @@ import { existsSync, readFileSync, writeFileSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { totp } from './totp';
+import { execFileSync } from 'node:child_process';
+
+// A fresh one-time sign-in link for the persona, made just before use (they expire within minutes).
+function freshLoginUrl(dir: string, key: string): string | undefined {
+  const aliasFile = join(dir, `${key}.alias`);
+  if (!existsSync(aliasFile)) return undefined;
+  try {
+    const out = execFileSync('sf', ['org', 'open', '--target-org', readFileSync(aliasFile, 'utf8').trim(), '--url-only', '--json'], {
+      encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], env: { ...process.env, FORCE_COLOR: '0', NO_COLOR: '1' },
+    });
+    const start = out.search(/^\{\s*$/m);
+    return JSON.parse(out.slice(start >= 0 ? start : out.indexOf('{'))).result.url;
+  } catch {
+    return undefined;
+  }
+}
 
 // For each persona, CI writes a one-time frontdoor URL to .auth/<persona>.url (sf org open --url-only,
 // run as that persona's user). We open it once, save the Lightning session as storage state, and delete
@@ -78,6 +94,8 @@ export default async function globalSetup(config: FullConfig) {
       const dir = join(__dirname, '..', '.auth');
       const urlFile = join(dir, `${project.name}.url`);
       const stateFile = join(dir, `${project.name}.json`);
+      const fresh = freshLoginUrl(dir, project.name);
+      if (fresh) writeFileSync(urlFile, fresh, { mode: 0o600 });
       if (!existsSync(urlFile)) {
         if (existsSync(stateFile)) continue;
         throw new Error(`No login for persona "${project.name}": expected .auth/${project.name}.url`);
