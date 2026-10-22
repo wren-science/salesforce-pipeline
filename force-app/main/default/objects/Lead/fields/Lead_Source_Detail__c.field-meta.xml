@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Lead_Source_Detail__c</fullName>
+    <description>Free-text detail on where a lead came from (event name, referrer). Added by the pipeline smoke test to prove PR validation and the QA deploy.</description>
+    <externalId>false</externalId>
+    <inlineHelpText>Optional detail on the lead source, such as the event name or who referred them.</inlineHelpText>
+    <label>Lead Source Detail</label>
+    <length>255</length>
+    <required>false</required>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>
