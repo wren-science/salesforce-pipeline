@@ -32,7 +32,8 @@ You are one role in a delivery pipeline (see `docs/pipeline/architecture.md`). Y
 - Work only against the org named in your task (alias `agent`: the story's leased pool sandbox). Never deploy to QA
   or any shared org (`PIPE-03`). The sandbox is a copy of the real org: it also holds code, data and configuration
   that aren't in this repo. Leave them alone, and run only this repo's Apex tests (`--class-names`), never `RunLocalTests`.
-- Never print, log or commit credentials, auth URLs, session ids, tokens or org ids (`QG-08`, `PIPE-14`).
+- Never print, log or commit credentials, auth URLs, session ids, tokens or org ids (`QG-08`, `PIPE-14`). Run Apex
+  tests with `--result-format junit` or `json`: the human format prints the org id.
 - Never edit `.github/**` (`PIPE-08`); never edit `manifest/package.xml` (`PIPE-05`).
 - `force-app` must not reference NPSP metadata (`PIPE-04`), until ADR 0003's cutover review retires the rule.
 
