@@ -105,10 +105,12 @@ for (const p of catalogue) {
   writeFileSync(envFile, [...kept, `${envName}=${password}`].join('\n') + '\n', { mode: 0o600 });
 
   if (resetMfa) {
-    for (const t of query(org, `SELECT Id FROM TwoFactorInfo WHERE UserId = '${user.Id}'`)) {
-      sf('data', 'delete', 'record', '-o', org, '-s', 'TwoFactorInfo', '-i', t.Id);
-      log(`${p.key}: cleared a registered authenticator`);
-    }
+    // Supported Apex route (the TwoFactorInfo object needs an extra MFA-in-API permission most admins don't have).
+    const mfa = join(tmpdir(), `mfa-${p.key}.apex`);
+    writeFileSync(mfa, `try { System.UserManagement.deregisterVerificationMethod('${user.Id}', Auth.VerificationMethod.TOTP); } catch (Exception e) {}`);
+    sf('apex', 'run', '-o', org, '-f', mfa);
+    rmSync(mfa);
+    log(`${p.key}: cleared any registered authenticator app`);
   }
 
   // JWT login comes after the password change: setting a password ends the user's existing sessions.

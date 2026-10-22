@@ -7,9 +7,9 @@
 //   node scripts/sandbox-handover.mjs unpack <file>   (work job: logs in as `agent` and each persona, writes .auth)
 //   node scripts/sandbox-handover.mjs revoke          (work job, at the end: revokes those sessions in the org)
 import { execFileSync } from 'node:child_process';
-import { readFileSync, writeFileSync, readdirSync, existsSync, mkdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, readdirSync, existsSync, mkdirSync, realpathSync } from 'node:fs';
 import { join, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const [cmd, file] = process.argv.slice(2);
 if (!['pack', 'unpack', 'revoke'].includes(cmd) || (cmd !== 'revoke' && !file)) {
@@ -27,6 +27,15 @@ const sf = (args, env = {}) => {
   return j.result;
 };
 
+// The CLI redacts tokens in `org display` (even --verbose), so read them through the CLI's own @salesforce/core.
+async function accessToken(username) {
+  const cliRoot = dirname(dirname(realpathSync(execFileSync('which', ['sf'], { encoding: 'utf8' }).trim())));
+  const core = await import(pathToFileURL(join(cliRoot, 'node_modules/@salesforce/core/lib/index.js')).href);
+  const conn = await core.Connection.create({ authInfo: await core.AuthInfo.create({ username }) });
+  await conn.refreshAuth(); // a fresh session, so the receiver gets the full lifetime
+  return { instanceUrl: conn.instanceUrl, accessToken: conn.accessToken };
+}
+
 const aliases = () => [{ alias: 'agent' }, ...(existsSync(authDir) ? readdirSync(authDir).filter((f) => f.endsWith('.alias'))
   .map((f) => ({ key: f.slice(0, -'.alias'.length), alias: readFileSync(join(authDir, f), 'utf8').trim() })) : [])];
 
@@ -38,7 +47,7 @@ if (cmd === 'revoke') {
   for (const u of usernames) {
     const l = { alias: u, key: u };
     try {
-      const d = sf(['org', 'display', '--target-org', u]);
+      const d = await accessToken(u);
       const r = await fetch(`${d.instanceUrl}/services/oauth2/revoke`, { method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ token: d.accessToken }) });
       console.log(`[handover] ${l.key ?? 'admin'}: session ${r.ok ? 'revoked' : `not revoked (HTTP ${r.status})`}`);
@@ -49,11 +58,12 @@ if (cmd === 'revoke') {
 } else if (cmd === 'pack') {
   const all = aliases();
   const personas = all.slice(1);
-  const logins = all.map((l) => {
-    const d = sf(['org', 'display', '--target-org', l.alias]);
-    mask(d.accessToken);
-    return { ...l, instanceUrl: d.instanceUrl, accessToken: d.accessToken };
-  });
+  const logins = [];
+  for (const l of all) {
+    const t = await accessToken(sf(['org', 'display', '--target-org', l.alias]).username);
+    mask(t.accessToken);
+    logins.push({ ...l, ...t });
+  }
   const personaEnv = existsSync(join(authDir, 'persona.env')) ? readFileSync(join(authDir, 'persona.env'), 'utf8') : '';
   writeFileSync(file, JSON.stringify({ logins, personaEnv }), { mode: 0o600 });
   console.log(`[handover] packed ${logins.length} logins (admin + ${personas.length} personas)`);
