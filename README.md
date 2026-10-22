@@ -2,7 +2,9 @@
 
 A proof of concept for agentic Salesforce delivery. Claude Code agents take a GitHub issue to a QA
 sandbox. sfdx-hardis handles the release mechanics, and people approve three gates on the way. The
-worked use case is **Sales Cloud**: leads, accounts, contacts and opportunities.
+worked use case is **student recruitment on Sales Cloud**: enquiries as leads, applications as
+opportunities. Work is tracked as GitHub issues on the [Salesforce Delivery board](https://github.com/orgs/wren-science/projects/1),
+which replaces Jira.
 
 - **GitHub** is the control plane: issues, pull requests, labels, Actions and environments.
 - **sfdx-hardis** is the Salesforce release engine. It replaces Gearset; see

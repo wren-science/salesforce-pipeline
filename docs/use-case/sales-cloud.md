@@ -1,47 +1,45 @@
-# Use case: Sales Cloud lead-to-opportunity
+# Use case: student recruitment on Sales Cloud
 
-The proof demonstrates agents delivering small, real Sales Cloud stories end to end. The scope is the
-standard sales process: **Lead → convert → Account, Contact, Opportunity → close**.
+The proof shows agents delivering small, real Sales Cloud stories end to end. The scenario is a
+university recruiting students, mapped onto the standard sales process:
 
-## Why Sales Cloud
-
-- The QA sandbox's Lead and Opportunity objects carry no custom fields yet, so every change in this
-  repo is new and easy to see.
-- The org runs NPSP for fundraising. This repo stays out of NPSP's way: no NPSP metadata in
-  `force-app`, and every plan checks for conflicts with NPSP's Account, Contact and Opportunity
-  behaviour (`NPO-SALES-005`).
-
-## Objects in scope
-
-| Object | Typical stories |
+| Recruitment idea | Sales Cloud object |
 | --- | --- |
-| Lead | Capture, qualification, duplicate prevention, assignment, conversion mapping |
-| Account | Business account details for converted leads |
-| Contact | Contact created on conversion |
-| Opportunity | Stages, required fields per stage, products later |
+| A prospective student's enquiry | **Lead** |
+| An enquiry that becomes an application | Lead conversion → **Contact** + **Opportunity** |
+| An application moving through admissions | **Opportunity** with a Student Recruitment sales process |
+| A course a student can apply for | **Program** (custom object) |
+| An enrolled student | **Contact** with Student Status = Enrolled |
 
-## Demo story
+Application stages: Enquiry → Application Started → Application Submitted → Offer Made → Offer
+Accepted → **Enrolled** (closed won) or **Not Proceeding** (closed lost).
 
-**Prevent duplicate leads.** As a sales user, when I create a lead whose email (or company and name)
-matches an existing lead or contact, I'm warned and shown the match, so we don't chase the same person
-twice.
+## Backlog
 
-Acceptance criteria:
+The stories are GitHub issues under the epic
+[#3 Student recruitment on Sales Cloud](https://github.com/wren-science/salesforce-pipeline/issues/3),
+tracked on the [Salesforce Delivery project board](https://github.com/orgs/wren-science/projects/1).
+Each uses the story template with numbered acceptance criteria.
 
-1. Creating a lead with the same email as an existing lead shows a duplicate alert listing the match.
-2. Creating a lead with the same company and last name as an existing lead shows the alert.
-3. A lead with a different email and company saves without an alert.
-4. The rule works for leads created through the API, not just the UI.
+| Issue | Story | Exercises |
+| --- | --- | --- |
+| #4 | Program catalogue | New object, unique field, permission set |
+| #5 | Enquiry details on Lead | Fields, lookup filter |
+| #6 | Prevent duplicate prospective students (**demo story**) | Matching and Duplicate Rules |
+| #7 | Applications as opportunities | Record type, sales process, NPSP coexistence |
+| #8 | Conversion creates an application | Lead field mapping |
+| #9 | An offer needs a program and intake | Validation rules |
+| #10 | Route international enquiries | Assignment rules, queues |
+| #11 | Tidy email and mobile on save | Before-save Flow |
+| #12 | Flag stalled applications | Apex trigger, custom metadata, bulk tests |
+| #13 | Mark the student enrolled | After-save automation on a related record |
+| #14 | Recruitment funnel dashboard | Reports and dashboards in source |
 
-Expected approach: standard Matching and Duplicate Rules (`NPO-SALES-001`, `NPO-FLOW-007`) with Apex
-tests proving each criterion (`NPO-TEST-002`).
+Suggested order: #4 → #5 → #6 → #7 → #8, then the rest in any order.
 
-## Backlog of follow-on stories
+## Working alongside NPSP
 
-| Story | Exercises |
-| --- | --- |
-| Lead qualification fields and a required-at-conversion validation rule | Validation rules, conversion mapping |
-| Auto-assign web leads by region | Assignment rules, Flow |
-| Normalise lead email and phone on save | Before-save Flow (`NPO-FLOW-001`) |
-| Required fields per opportunity stage | Validation rules, sales process |
-| Opportunity close summary on Account | After-save automation, bulk tests |
+The QA sandbox runs NPSP for fundraising, and NPSP has its own Account, Contact, Opportunity and lead
+conversion behaviour. This repo stays out of its way: no NPSP metadata in `force-app`, new behaviour
+scoped to the Student Application record type, and every plan checks for conflicts
+(`NPO-SALES-005`). Scratch orgs don't have NPSP, so tests must pass in both (`NPO-TEST-003`).
