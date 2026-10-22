@@ -25,7 +25,18 @@ async function completeFirstLogin(page: import('@playwright/test').Page, key: st
   if (!/\/lightning\//.test(page.url())) await page.goto('/lightning/page/home');
 }
 
+// Persona passwords written by scripts/personas.mjs (git-ignored, 0600). Used only if the environment lacks them.
+function loadPersonaEnv() {
+  const f = join(__dirname, '..', '.auth', 'persona.env');
+  if (!existsSync(f)) return;
+  for (const line of readFileSync(f, 'utf8').split('\n')) {
+    const i = line.indexOf('=');
+    if (i > 0 && !process.env[line.slice(0, i)]) process.env[line.slice(0, i)] = line.slice(i + 1);
+  }
+}
+
 export default async function globalSetup(config: FullConfig) {
+  loadPersonaEnv();
   const browser = await chromium.launch();
   try {
     for (const project of config.projects) {

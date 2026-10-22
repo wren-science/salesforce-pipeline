@@ -24,8 +24,9 @@ const authDir = join(root, 'tests/e2e/.auth');
 mkdirSync(authDir, { recursive: true, mode: 0o700 });
 
 const sf = (...a) => {
-  const out = execFileSync('sf', [...a, '--json'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
-  const j = JSON.parse(out.slice(out.indexOf('{')));
+  const out = execFileSync('sf', [...a, '--json'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, FORCE_COLOR: '0', NO_COLOR: '1', SF_DISABLE_COLORS: 'true' } });
+  const start = out.search(/^\{\s*$/m);
+  const j = JSON.parse(out.slice(start >= 0 ? start : out.indexOf('{')));
   if (j.status !== 0) throw new Error(`sf ${a[0]} ${a[1]} failed: ${j.message}`);
   return j.result;
 };
@@ -103,7 +104,7 @@ for (const p of catalogue) {
   rmSync(apex);
   const envLine = `PERSONA_PASSWORD_${p.key.toUpperCase().replace(/-/g, '_')}=${password}\n`;
   if (process.env.GITHUB_ENV) appendFileSync(process.env.GITHUB_ENV, envLine);
-  else appendFileSync(join(authDir, 'persona.env'), envLine, { mode: 0o600 });
+  appendFileSync(join(authDir, 'persona.env'), envLine, { mode: 0o600 });
 
   writeFileSync(join(authDir, `${p.key}.url`), sf('org', 'open', '-o', alias, '--url-only').url, { mode: 0o600 });
   log(`${p.key}: ready (${p.permissionSetGroups.join(', ')})`);
