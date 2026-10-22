@@ -135,6 +135,7 @@ jobs:
           done
           echo "SF_BASE_URL=$(node scripts/lightning-url.mjs agent)" >> "$GITHUB_ENV"
       - name: Repair agent
+        id: repair
         uses: anthropics/claude-code-action@05049bd0bcda11738058a1318af29d1ac8d111b4 # v1.0.245
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -154,8 +155,11 @@ jobs:
           claude_args: |
             --model claude-opus-5-5
             --max-turns 120
-            --allowedTools "Read,Grep,Glob,Edit,Write,Bash(sf:*),Bash(node scripts/personas.mjs:*),Bash(cd tests/e2e && npx playwright test:*),Bash(npx playwright test:*),Bash(git add:*),Bash(git commit:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git push:*),Bash(gh pr view:*),Bash(gh pr edit:*),Bash(gh run view:*)"
+            --allowedTools "Read,Grep,Glob,Edit,Write,Bash(sf:*),Bash(node scripts/personas.mjs:*),Bash(cd tests/e2e && npx playwright test:*),Bash(npx playwright test:*),Bash(git add:*),Bash(git commit:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git push:*),Bash(gh pr view:*),Bash(gh pr edit:*),Bash(gh run view:*),Bash(ls:*),Bash(cat:*),Bash(head:*),Bash(tail:*),Bash(find:*),Bash(grep:*),Bash(wc:*),Bash(cd:*),Bash(pwd),Bash(mkdir:*),Bash(jq:*)"
             --disallowedTools "Edit(.github/**),Write(.github/**),Edit(manifest/**),Write(manifest/**),Bash(sf org login:*),Bash(sf org logout:*)"
+      - name: Report (repair)
+        if: always()
+        run: node scripts/agent-report.mjs "repair" "${{ steps.repair.outputs.execution_file }}"
       - if: always()
         run: sf org logout --target-org agent --no-prompt >/dev/null 2>&1 || true
 
