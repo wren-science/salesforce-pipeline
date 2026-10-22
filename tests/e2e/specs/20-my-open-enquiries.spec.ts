@@ -21,10 +21,12 @@ test.describe('#20 My open enquiries list view', () => {
 
   test.beforeAll(async ({}, testInfo) => {
     const personaId = personaUserId(testInfo.project.name);
+    // Lead_Source_Detail__c is left blank: the CLI user has no FLS on it (only persona permission sets grant
+    // it), and anonymous Apex enforces FLS. AC2 asserts the column, not a value in it.
     runApex(`
       Id personaId = '${personaId}';
       List<Lead> leads = new List<Lead>{
-        new Lead(LastName = '${mine}', Company = '${marker}', LeadSource = 'Web', Lead_Source_Detail__c = 'Open day', OwnerId = personaId),
+        new Lead(LastName = '${mine}', Company = '${marker}', LeadSource = 'Web', OwnerId = personaId),
         new Lead(LastName = '${otherOwner}', Company = '${marker}', LeadSource = 'Web', OwnerId = UserInfo.getUserId()),
         new Lead(LastName = '${converted}', Company = '${marker}', LeadSource = 'Web', OwnerId = personaId)
       };
@@ -68,7 +70,7 @@ test.describe('#20 My open enquiries list view', () => {
     const headers = await page
       .getByRole('columnheader')
       .evaluateAll((ths) => ths.map((th) => (th.getAttribute('aria-label') || th.getAttribute('title') || (th.textContent ?? '')).trim()));
-    const dataColumns = headers.filter((h) => h && !/item number|select|action/i.test(h)).map((h) => (h === 'Status' ? 'Lead Status' : h));
+    const dataColumns = headers.filter((h) => h && !/item number|row number|select|action/i.test(h)).map((h) => (h === 'Status' ? 'Lead Status' : h));
     expect(dataColumns).toEqual(COLUMNS);
   });
 
