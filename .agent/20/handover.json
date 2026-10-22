@@ -1,0 +1,46 @@
+{
+  "version": 2,
+  "issue": 20,
+  "stage": "review-required",
+  "role": "repair",
+  "summary": "Built the 'My open enquiries' Lead list view: filterScope Mine, LEAD.CONVERTED equals 0, columns Name, Company, Lead Source, Lead Source Detail, Lead Status, Created Date, shared only to group Persona_Recruitment_Officer. Persona_Recruitment_Officer has read-only FLS on Lead.LeadSource so the Lead Source column renders (a person accepted this on #20). This repair answers the latest reviews. The spec uses the single helper at tests/e2e/support/org.ts. The Playwright cleanup deletes only what the conversion created and refuses to delete a converted Account that holds other Contacts. The denial test no longer turns a query exception into a pass. In the agent sandbox: deploy succeeded, Apex 4/4 pass, the seed and cleanup Apex left 0 records, and Playwright lists 5 tests.",
+  "standards": ["DES-01", "DES-02", "DES-05", "DES-09", "SHR-03", "SHR-04", "SHR-15", "TST-03", "TST-06", "TST-11", "TST-16", "TST-17", "TST-18", "PIPE-06", "PIPE-11", "PIPE-15"],
+  "acceptanceCriteria": [
+    { "id": "AC1", "status": "passed", "evidence": "MyOpenEnquiriesListViewTest.shouldShowListViewToRecruitmentOfficer; Playwright '#20 AC1: Leads tab offers the \"My open enquiries\" list view' (tests/personas, run 39844012169)" },
+    { "id": "AC2", "status": "passed", "evidence": "Playwright '#20 AC2: shows only my unconverted Leads with the agreed columns' (tests/personas, run 39844012169)" },
+    { "id": "AC3", "status": "passed", "evidence": "MyOpenEnquiriesListViewDenialTest.shouldHideListViewFromPersonaOutsideGroup; Playwright '#20 AC3: list view is shared only with the persona public group' (tests/personas, run 39844012169)" }
+  ],
+  "testChanges": [
+    { "test": "MyOpenEnquiriesListViewDenialTest.shouldHideListViewFromPersonaOutsideGroup", "change": "Removed the catch (System.QueryException) that counted any query failure as a denial.", "whyNotWeaker": "Stricter: an unexpected exception now fails the test. The assertion is unchanged, and the test still passes in the agent sandbox (Minimum Access gets 0 rows)." },
+    { "test": "tests/e2e/specs/20-my-open-enquiries.spec.ts afterAll", "change": "Cleanup deletes only Contacts with Id IN :contactIds, and throws instead of deleting a converted Account that has other Contacts. The spec imports ../support/org.", "whyNotWeaker": "Setup and cleanup only. No assertion changed, and the cleanup can no longer delete real data in a shared org (PIPE-15)." }
+  ],
+  "openQuestions": [
+    { "question": "Please delete tests/e2e/specs/support/org.ts (now a re-export that nothing imports). git rm was not allowed for this repair agent.", "owner": "person" },
+    { "question": "arch-3: please amend story #20's out-of-scope note or the approved plan so it records the read-only Lead.LeadSource grant for Recruitment Officer.", "owner": "person" },
+    { "question": "arch-5/sec-4: should pr-tests and deploy-qa set SF_DATA_ORG so the helper can require it? This needs a .github change (PIPE-08).", "owner": "person" }
+  ],
+  "findings": [
+    { "id": "arch-1", "status": "fixed", "note": "The spec imports ../support/org, so tests/e2e/support/org.ts is the one copy of the logic. specs/support/org.ts is now a one-line re-export that nothing imports, so it cannot drift. git rm needed approval this agent lacks, so deleting the file is an openQuestion for a person." },
+    { "id": "arch-2", "status": "fixed", "note": "Rewrote the handover as version 2: no attempts or scratchOrg fields, the FLS item moved to notes, and findings answered." },
+    { "id": "arch-3", "status": "disputed", "note": "No code change, as the finding says. Amending the story or plan is for a person or the planner, so it is listed in openQuestions." },
+    { "id": "arch-4", "status": "disputed", "note": "Left as is, as the finding allows. The split into two classes is needed (TST-11), and a shared @IsTest class for a 6-line query would add a class for little gain. The reason is in both class headers." },
+    { "id": "arch-5", "status": "disputed", "note": "Accepted for now by the reviewer. There is now one copy, so narrow seed and cleanup helpers can follow in a later story. Requiring SF_DATA_ORG needs a .github change by a person (PIPE-08), so it is in openQuestions." },
+    { "id": "arch-6", "status": "disputed", "note": "No change in this PR, as the finding says. Lead goes into the next LDV-09 re-baseline." },
+    { "id": "sec-1", "status": "fixed", "note": "afterAll deletes only Contacts with Id IN :contactIds, and throws instead of deleting a converted Account that has other Contacts. Checked against agent: others=0, left=0 (.agent/20/diagnostics/seed-and-cleanup.apex)." },
+    { "id": "sec-2", "status": "fixed", "note": "Same as arch-1: one copy of the logic at tests/e2e/support/org.ts, which the spec imports." },
+    { "id": "sec-3", "status": "fixed", "note": "Removed the try/catch from MyOpenEnquiriesListViewDenialTest. It still passes in agent (4/4). A group-level denial waits for a second Lead-reading persona (TST-18)." },
+    { "id": "sec-4", "status": "disputed", "note": "Needs a .github change by a person (PIPE-08). Listed in openQuestions." },
+    { "id": "sec-5", "status": "fixed", "note": "Version 2 handover: the DES-01 item is in notes with the #20 decision, the RunLocalTests wording is gone, and findings are answered." },
+    { "id": "tests-1", "status": "fixed", "note": "Same as sec-3: the catch is removed, so an unexpected exception fails the test." },
+    { "id": "tests-2", "status": "fixed", "note": "Same as arch-1: the spec imports ../support/org. The stale comment went with the old copy's logic." },
+    { "id": "tests-3", "status": "fixed", "note": "Same as sec-1." },
+    { "id": "tests-4", "status": "fixed", "note": "Same as arch-2: the DES-01 item is in notes, next is updated, and findings are answered." },
+    { "id": "tests-5", "status": "disputed", "note": "No change in this PR, as the finding says. A Playwright denial follows when a second Lead-reading persona joins config/personas.json." }
+  ],
+  "notes": [
+    "DES-01 / 01 §3: the read-only Lead.LeadSource grant on Persona_Recruitment_Officer (inside PSG Recruitment_Officer) was accepted by wrenscience under docs/pipeline/governance.md. See the #20 comment 'Decision: Recruitment Officer gets read-only Lead Source (accepted)' and the confirmation on PR #25.",
+    "TST-11: the denial test lives in its own class, and both tests filter ListView on DeveloperName. In a check-only deploy, a query on SobjectType = 'Lead' by a user without Lead access empties that filter for every user for the rest of the run.",
+    "Playwright was not run locally because persona login files come from scripts/personas.mjs, which the repair allowlist does not include. The tests/personas check on this push is the Playwright evidence."
+  ],
+  "next": "Rerun tests/personas and validate/qa on this push, then the reviewers. A person deletes tests/e2e/specs/support/org.ts and answers the other openQuestions."
+}
