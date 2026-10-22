@@ -35,7 +35,8 @@ GitHub Actions on label and check events. Every design and security decision sta
     in QA, Playwright regression as personas.
 
 People step in where they want to or where they're needed. Adding `human:review-wanted` to a PR makes the gate
-wait for a person's approval of the current commit. Agents set `human:approval-required` when a plan is above
+wait for a person's approval of the current commit (approve, then remove the label). The gate is event-driven,
+not scheduled: checks and reviews completing, a person's label change, or a released sandbox start it. Agents set `human:approval-required` when a plan is above
 low risk, a requirement is ambiguous, an ADR is needed or the repair limit is reached; the gate never merges
 those.
 
