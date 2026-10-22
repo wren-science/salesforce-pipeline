@@ -50,6 +50,9 @@ State lives in GitHub, never in conversation history (`PIPE-06`):
   never as free-form reports. Read what was tried (`tried`) before investigating, log each step you test (`log`), and
   before you finish write `.agent/<issue>/handover.json` (version 2), validate it, and commit it with your work.
   Reviewers write `review.json`; the pipeline posts it.
+- Last of all, every agent writes a short `run-report.json` self-assessment (unclear instructions, ambiguous
+  standards, org surprises, what you'd do differently; at most 3 short items each) and doesn't commit it. The
+  pipeline also extracts run facts (deploy errors by type, test failures, denials, repeats) from your log.
 - Stop and ask a person (label `human:approval-required`, plus a comment saying why) when the
   requirement is ambiguous, a standard conflicts with the story, an ADR is needed, or you hit a retry limit.
 
