@@ -199,7 +199,7 @@ private class ProgramCatalogueTest {
         Schema.DescribeSObjectResult obj;
         Map<String, Boolean> updateableByField = new Map<String, Boolean>();
         System.runAs(TestPersonaFactory.get(TestPersonas.RECRUITMENT_OFFICER)) {
-            obj = Program__c.SObjectType.getDescribe();
+            obj = Program__c.SObjectType.getDescribe(SObjectDescribeOptions.DEFERRED);
             Map<String, Schema.SObjectField> fields = obj.fields.getMap();
             // Field describes are evaluated for the current user, so read them inside runAs.
             for (String f : new List<String>{ 'Study_Level__c', 'Faculty__c', 'Active__c' }) {

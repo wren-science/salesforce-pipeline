@@ -1,7 +1,7 @@
 {
   "issue": 4,
   "stage": "review-required",
-  "role": "developer",
+  "role": "repair",
   "summary": "Program catalogue built declaratively (DES-02): Program__c (Public Read/Write internal OWD, Private external) with Program_Code__c (Text(20), required, unique, case-insensitive, External Id), restricted Study_Level__c and Faculty__c picklists, Active__c (default true); Active_Programs and All list views; layout, compact layout and search layouts; Programs tab added to the Recruitment app; Persona_Recruitment_Officer gains Program Read/Create/Edit (no Delete), FLS and tab visibility. ADR 0002 records the decision accepted on #4. All 20 Apex tests and 7 Playwright tests pass in the agent sandbox.",
   "standards": ["DES-01", "DES-02", "DES-09", "DES-11", "DM-01", "DM-02", "DM-03", "DM-04", "DM-06", "DM-07", "DM-08", "SHR-01", "SHR-02", "SHR-07", "SHR-15", "APX-21", "APX-22", "TST-01", "TST-03", "TST-16", "TST-17", "PIPE-11", "PIPE-12", "PIPE-14", "PIPE-15"],
   "adrs": ["docs/adr/0002-program-custom-object.md"],
@@ -36,10 +36,11 @@
     "shouldGrantProgramAccessThroughPermissionSetNotProfile: field describes are now read inside System.runAs. Outside it they reported the admin's FLS, not the persona's.",
     "Denial tests also accept the exception types user mode actually throws: TypeException 'DML operation DELETE not allowed' (checked by message) and SecurityException on read. Each still asserts that the operation was refused and that no data changed.",
     "shouldShowProgramsTabInRecruitmentApp: Schema.describeTabs() lists Classic apps only, and Recruitment is a Lightning app. The test now checks, as the persona, that AppDefinition 'Recruitment' is visible and its AppTabMember includes Program__c, and that Persona_Recruitment_Officer has the Program__c tab visible.",
+    "Repair 1 (QG-03): Code Analyzer flagged pmd:EagerlyLoadedDescribeSObjectResult (High) in shouldGrantProgramAccessThroughPermissionSetNotProfile. The object describe now uses SObjectDescribeOptions.DEFERRED; the assertions are unchanged and still run as the persona.",
     "Playwright: the record URL check accepts /lightning/r/<id>/view as well as the form with the object name. Picklist selection retries and then verifies the chosen value. View-mode Active is read from its Details field (True/False), because Lightning does not render it as a checkbox there. The AC2 field check accepts the platform's 'Program_Code__c' wording (plan decision 4). AC2's 'not saved' URL check is now stricter (any record page)."
   ],
   "scratchOrg": "agent",
-  "attempts": { "repair": 0, "review": 0 },
+  "attempts": { "repair": 1, "review": 0 },
   "openQuestions": [
     "PIPE-15: the harness clean-up of E2E-* Programs in QA (plan decision 6b) is not in this repo yet. It is outside what a story may change (global-setup.ts is integration's copy).",
     "DM-04 / RET-01: Data_Retention_Policy__mdt does not exist in this repo yet. The Program policy row (Retain Indefinitely, ADR 0002) is added when the retention engine lands."
