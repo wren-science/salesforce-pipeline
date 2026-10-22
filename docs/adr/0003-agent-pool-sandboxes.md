@@ -54,6 +54,21 @@ Option 3.
 - **Safety on copies.** Preparation deactivates copied users other than the admin and aborts scheduled jobs.
   It lists named credentials so that nothing calls live systems.
 
+## What preparing the first sandbox taught us (agent1, 2026-10-22)
+- **Clones don't gain source tracking.** A clone of a sandbox that was created before tracking was turned on
+  has none, so agent1 has no source tracking. The pipeline always deploys explicitly, so that's fine.
+  Sandboxes created from production after tracking was enabled (agent2, agent3) have it.
+- **Each copy gets a new consumer key for the ECA.** The key is read from the org
+  (`/services/data/vXX/apps/oauth/credentials/<app id>`), never assumed to match QA's or production's.
+- **The production login can authorise a new sandbox.** `sf org resume sandbox` does it, so no interactive
+  login is needed to prepare one.
+- **Copies carry live endpoints.** A named credential copied from QA pointed at production. Preparation
+  repoints any named credential aimed at the production domain to the sandbox itself. (QA has the same one.)
+- **MFA reset needs Apex.** Reading the `TwoFactorInfo` object needs an extra MFA-in-API permission;
+  `System.UserManagement.deregisterVerificationMethod` works without it.
+- **The CLI redacts tokens.** `org display` redacts access tokens even with `--verbose`, so the handover reads
+  them through the CLI's own `@salesforce/core`.
+
 ## Consequences
 - Development and tests now run against the real data model and packages, including NPSP here, and
   Education Cloud and Service Cloud in a GU-style org. Once the sandbox flow has run stories end to end,
