@@ -99,8 +99,10 @@ jobs:
       - name: Take the PR's source and tests
         run: |
           git fetch --no-tags origin "$HEAD_SHA"
-          rm -rf force-app tests/e2e/specs
-          git checkout "$HEAD_SHA" -- force-app tests/e2e/specs config/personas.json
+          rm -rf force-app tests/e2e/specs tests/e2e/support
+          git checkout "$HEAD_SHA" -- force-app tests/e2e/specs tests/e2e/support config/personas.json
+          # The PR may add test helpers; the harness that signs personas in and captures evidence stays integration's.
+          git checkout origin/integration -- tests/e2e/support/global-setup.ts tests/e2e/support/totp.ts tests/e2e/support/evidence.ts
           git status --short | head -50
 
       - uses: ./.github/actions/setup-sf
@@ -192,6 +194,8 @@ jobs:
             --title "Evidence: scratch org (tests/scratch)" --run-url "$RUN_URL" > evidence.md
           OK=$?
           [ "${{ needs.work.outputs.deploy }}" = "success" ] || OK=1
+          [ "${{ needs.work.outputs.apex }}" = "success" ] || OK=1
+          [ "${{ needs.work.outputs.playwright }}" = "success" ] || OK=1
           cat evidence.md >> "$GITHUB_STEP_SUMMARY"
           # Find the PR by its head branch: commits/{sha}/pulls can answer 200 with an empty body.
           PR=$(gh api "repos/${{ github.repository }}/pulls?state=open&head=${{ github.repository_owner }}:$HEAD_BRANCH" --jq '.[0].number // empty')
