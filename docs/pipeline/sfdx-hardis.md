@@ -33,16 +33,23 @@ request merged between long-lived branches, and each branch maps to one org.
 
 ## Authentication
 
-CI logs in with the JWT bearer flow, one certificate per org. sfdx-hardis looks for these GitHub
-secrets, named after the **branch** (upper case):
+CI logs in with the JWT bearer flow through an External Client App in the org. sfdx-hardis looks
+for credentials named after the **branch** (upper case). This repo keeps all of them in the GitHub
+Environment for that branch, never in the repo or in repo-wide secrets:
 
-| Secret | Value |
-| --- | --- |
-| `SFDX_CLIENT_ID_<BRANCH>` | Consumer key of the External Client App in that org |
-| `SFDX_CLIENT_KEY_<BRANCH>` | Encryption key for the certificate's private key, from `sf hardis project configure auth` |
+| Name | Kind | Value |
+| --- | --- | --- |
+| `SFDX_CLIENT_ID_<BRANCH>` | Environment secret | Consumer key of the External Client App |
+| `SFDX_CLIENT_CERT_<BRANCH>` | Environment secret | The certificate's private key as raw PEM, so no `SFDX_CLIENT_KEY_<BRANCH>` passphrase or committed key file is needed |
+| `TARGET_USERNAME`, `INSTANCE_URL` | Environment variables | The CI user and login URL, instead of a committed `config/branches/.sfdx-hardis.<branch>.yml` |
 
-`sf hardis project configure auth` generates the certificate, writes the branch config and tells you
-which secrets to add. Phase 1 runs it for `qa` and `integration`.
+The `qa` environment is set up: it requires a maintainer's approval (Gate 3) and only the `qa` branch
+can use it. Pull-request validation credentials are decided in Phase 1, because a workflow on a PR
+branch can be edited by whoever opened the PR.
+
+The interactive alternative, `sf hardis project configure auth`, generates a certificate and an
+encrypted key file for you; this repo doesn't use it so that nothing org-specific is committed to a
+public repo.
 
 ## Daily commands
 
