@@ -47,10 +47,12 @@ jobs:
           TITLE: ${{ github.event.workflow_run.display_title }}
         run: |
           HEAD_SHA=$(printf '%s' "$TITLE" | grep -oE '[0-9a-f]{40}$' || true)
-          [ -n "$HEAD_SHA" ] || { echo "No PR commit in the run name"; exit 1; }
+          BRANCH=$(printf '%s' "$TITLE" | grep -oE ' · feature/[A-Za-z0-9._/-]+ · ' | sed -E 's/^ · //; s/ · $//' || true)
+          [ -n "$HEAD_SHA" ] && [ -n "$BRANCH" ] || { echo "No PR branch/commit in the run name"; exit 1; }
           git fetch --no-tags origin "$HEAD_SHA"
           git checkout "$HEAD_SHA" -- force-app tests config 2>/dev/null || true
-          PR=$(gh api "repos/${{ github.repository }}/commits/$HEAD_SHA/pulls" --jq '.[0].number')
+          # By head branch: commits/{sha}/pulls can answer 200 with an empty body.
+          PR=$(gh api "repos/${{ github.repository }}/pulls?state=open&head=${{ github.repository_owner }}:$BRANCH" --jq '.[0].number // empty')
           echo "number=$PR" >> "$GITHUB_OUTPUT"
 
       - name: Reviewer agent

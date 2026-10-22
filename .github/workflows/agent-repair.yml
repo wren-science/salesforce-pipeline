@@ -36,7 +36,7 @@ jobs:
       - id: decide
         env:
           GH_TOKEN: ${{ github.token }}
-          WF: ${{ github.event.workflow_run.name }}
+          WF: ${{ github.event.workflow.name }}
           CONCLUSION: ${{ github.event.workflow_run.conclusion }}
           TITLE: ${{ github.event.workflow_run.display_title }}
         run: |
@@ -45,7 +45,8 @@ jobs:
           HEAD_SHA=$(printf '%s' "$TITLE" | grep -oE '[0-9a-f]{40}$' || true)
           BRANCH=$(printf '%s' "$TITLE" | grep -oE ' · feature/[A-Za-z0-9._/-]+ · ' | sed -E 's/^ · //; s/ · $//' || true)
           [ -n "$HEAD_SHA" ] && [ -n "$BRANCH" ] || { echo "No PR branch/commit in the run name"; exit 0; }
-          PR=$(gh api "repos/$R/commits/$HEAD_SHA/pulls" --jq '.[0].number')
+          # By head branch: commits/{sha}/pulls can answer 200 with an empty body.
+          PR=$(gh api "repos/$R/pulls?state=open&head=${{ github.repository_owner }}:$BRANCH" --jq '.[0].number // empty')
           [ -n "$PR" ] || exit 0
           # Only repair the PR's current head: a later push already supersedes this result.
           [ "$(gh api "repos/$R/pulls/$PR" --jq .head.sha)" = "$HEAD_SHA" ] || { echo "Stale result"; exit 0; }
