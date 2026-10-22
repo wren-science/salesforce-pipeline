@@ -1,11 +1,11 @@
 {
   "version": 2,
   "issue": 5,
-  "stage": "tests-written",
-  "role": "test-writer",
-  "summary": "Tests written first for the enquiry details on Lead, from the approved plan and its decisions. Apex LeadEnquiryDetailsTest (14 methods, all as personas) covers the four fields, their restricted values (Study Level equal to Program's, Domestic/International, the six agreed intakes), an optional lookup filter to active Programs, the persona permission set grants, a 200-Lead user-mode insert and Minimum Access denials. TestDataFactory gains buildLeads (plan item 7). Playwright 5-enquiry-details.spec.ts has one test per AC in the recruitment-officer project. Nothing is built yet, so every test is expected to fail or not compile until the developer adds the metadata.",
-  "standards": ["DES-01", "DES-04", "DM-08", "APX-21", "APX-22", "APX-58", "SHR-15", "TST-01", "TST-03", "TST-05", "TST-06", "TST-12", "TST-16", "TST-17", "TST-18", "PIPE-11", "PIPE-12", "PIPE-14", "PIPE-15"],
-  "adrs": [],
+  "stage": "review-required",
+  "role": "developer",
+  "summary": "Enquiry details on Lead built declaratively (DES-02): restricted picklists Study_Level__c (same codes and labels as Program__c), Citizenship_Status__c (Confidential, PII) and Preferred_Intake__c (six agreed intakes), plus a Program_of_Interest__c lookup to Program__c with an optional active-only lookup filter (plan decision 6). Read/Edit FLS is granted only in Persona_Recruitment_Officer (inside PSG Recruitment_Officer). AC3 uses a new Dynamic Forms page, Lead_Recruitment_Record_Page, activated as the Recruitment app's Lead default (plan decision 4); the New Lead form takes the enquiry fields from it too. Program__c.enableSearch is now true (decision 3, ADR 0002 amendment). One deviation needs a person: Persona Base had no Lead page layout at all, so New Lead failed for every persona. It now has Lead-Persona Lead Layout, which holds standard fields only, no enquiry fields. Apex 39/39 and Playwright 14/14 pass in the sandbox.",
+  "standards": ["DES-01", "DES-02", "DES-04", "DES-05", "DES-09", "DES-11", "DM-02", "DM-03", "DM-05", "DM-06", "DM-08", "DM-12", "SHR-03", "SHR-15", "APX-21", "APX-22", "APX-58", "TST-01", "TST-03", "TST-05", "TST-16", "TST-17", "TST-18", "PIPE-04", "PIPE-11", "PIPE-15"],
+  "adrs": ["docs/adr/0002-program-custom-object.md"],
   "tests": {
     "apex": ["LeadEnquiryDetailsTest"],
     "playwright": ["tests/e2e/specs/5-enquiry-details.spec.ts"]
@@ -13,46 +13,53 @@
   "acceptanceCriteria": [
     {
       "id": "AC1",
-      "status": "not-built",
+      "status": "passed",
       "evidence": "LeadEnquiryDetailsTest.shouldLetRecruitmentOfficerCreateLeadWithEnquiryDetails, shouldOfferExactlyTheStudyLevelsOfferedOnPrograms, shouldOfferDomesticAndInternationalCitizenshipOnly, shouldOfferTheAgreedPreferredIntakes, shouldMakeProgramOfInterestAnOptionalLookupToProgram, shouldRejectUnknownCitizenshipStatus, shouldRejectAnIntakeOutsideTheAgreedList; Playwright '#5 AC1: Recruitment Officer records study level, citizenship, preferred intake and program on a new Lead'"
     },
     {
       "id": "AC2",
-      "status": "not-built",
+      "status": "passed",
       "evidence": "LeadEnquiryDetailsTest.shouldFilterProgramOfInterestWithAnOptionalLookupFilter, shouldAcceptActiveProgramOfInterest, shouldKeepLeadEditableAfterItsProgramIsDeactivated; Playwright '#5 AC2: Program of Interest offers active programs and not inactive ones'"
     },
     {
       "id": "AC3",
-      "status": "not-built",
-      "evidence": "LeadEnquiryDetailsTest.shouldGrantEnquiryFieldsThroughPermissionSetNotProfile; Playwright '#5 AC3: Lead page shows the enquiry details section to the Recruitment Officer' (opens the Lead from the Recruitment app, plan decision 4)"
+      "status": "passed",
+      "evidence": "LeadEnquiryDetailsTest.shouldGrantEnquiryFieldsThroughPermissionSetNotProfile; Playwright '#5 AC3: Lead page shows the enquiry details section to the Recruitment Officer' (Dynamic Forms page Lead_Recruitment_Record_Page, Recruitment app default)"
     },
     {
       "id": "AC4",
-      "status": "not-built",
-      "evidence": "LeadEnquiryDetailsTest.shouldCreate200LeadsWithEnquiryDetailsInOneTransaction (user mode, the API's CRUD/FLS path, as the persona per plan decision 1); Playwright '#5 AC4: a Lead created through the API with all four fields shows them on the Lead page'"
+      "status": "passed",
+      "evidence": "LeadEnquiryDetailsTest.shouldCreate200LeadsWithEnquiryDetailsInOneTransaction (user mode, as the persona); Playwright '#5 AC4: a Lead created through the API with all four fields shows them on the Lead page' (the Lead is now created through the REST API as the Recruitment Officer)"
     }
   ],
   "testChanges": [
     {
       "test": "LeadEnquiryDetailsTest AC2 methods",
-      "change": "The plan's shouldRejectInactiveProgramOfInterest (FIELD_FILTER_VALIDATION_EXCEPTION) is replaced by shouldFilterProgramOfInterestWithAnOptionalLookupFilter, and shouldKeepLeadEditableAfterItsProgramIsDeactivated asserts the save succeeds, because plan decision 6 made the filter optional.",
+      "change": "The plan's shouldRejectInactiveProgramOfInterest (FIELD_FILTER_VALIDATION_EXCEPTION) is replaced by shouldFilterProgramOfInterestWithAnOptionalLookupFilter, and shouldKeepLeadEditableAfterItsProgramIsDeactivated asserts the save succeeds, because plan decision 6 made the filter optional (test writer).",
       "whyNotWeaker": "An optional filter is not enforced on save, so the rejection test could never pass; the describe test proves the filter exists and is optional, and Playwright AC2 proves the lookup offers only active programs."
     },
     {
-      "test": "Playwright AC3",
-      "change": "Checks the 'Enquiry details' section and the four fields' edit buttons on the Lead page opened from the Recruitment app, not a Persona Base layout assignment (plan decision 4).",
-      "whyNotWeaker": "It asserts what the persona sees, whichever of Dynamic Forms or a layout through the record page the developer uses."
-    }
-  ],
-  "openQuestions": [
-    {
-      "question": "The Minimum Access denial tests expect System.SecurityException \"Access to entity 'Lead' denied\", inferred from #4's observed Program__c denial (.agent/4/diagnostics). The test writer has no org access; the developer must confirm it in the sandbox and record any difference in testChanges.",
-      "owner": "pipeline"
+      "test": "LeadEnquiryDetailsTest.shouldRefuseEnquiryDetailsReadToMinimumAccessPersona",
+      "change": "Catches System.QueryException \"sObject type 'Lead' is not supported\" instead of System.SecurityException \"Access to entity 'Lead' denied\".",
+      "whyNotWeaker": "The handover asked the developer to confirm this exception in the sandbox. It is what the platform throws for a user-mode query on a standard object the user cannot read (.agent/5/diagnostics/developer-1-lead-denial-exceptions.txt). Only that exception type is caught, its message is asserted, and the refusal must still happen."
     },
     {
-      "question": "Playwright setup seeds Programs and the AC3/AC4 Leads with anonymous Apex in SYSTEM_MODE, because the pipeline identity has no FLS on the new fields. AC4's API call is therefore not made as the persona (no persona API session); the persona-level proof is the Apex bulk test.",
-      "owner": "pipeline"
+      "test": "tests/e2e/specs/5-enquiry-details.spec.ts setup (beforeAll, seedLead) and support/org.ts createRecordAs",
+      "change": "Programs and the AC3/AC4 Leads are created through the REST API as the Recruitment Officer (new createRecordAs helper using the persona's CLI login in .auth/<key>.alias), not through anonymous Apex as the CLI admin in SYSTEM_MODE.",
+      "whyNotWeaker": "The anonymous Apex setup could never run: it compiles against the admin's FLS (no FLS on these fields) and anonymous Apex refuses SYSTEM_MODE. The records and values are the same. AC4's API call is now made by the persona itself, which is stronger than the old admin-made call the test writer had flagged."
+    },
+    {
+      "test": "tests/e2e/specs/5-enquiry-details.spec.ts AC1, AC2",
+      "change": "New Lead is opened from the Recruitment app (openNewLeadInRecruitmentApp), as AC3/AC4 already did. Lookup results are matched by text inside the 'Search Results' group (programResults), and the results list is closed before Cancel.",
+      "whyNotWeaker": "Lookup record options have no accessible name, so the old name regex matched only the 'Show more results for …' option. That option clicked into Advanced Search, and AC2's inactive-program check passed without testing anything. The new locator finds the active Program as a real result and checks the inactive one by text. Assertions are unchanged."
     }
   ],
-  "next": "developer"
+  "findings": [],
+  "openQuestions": [
+    {
+      "question": "Deviation from plan decision 4 (DES-01, 06 §6.1): Persona Base had no Lead page layout assignment, so the New Lead form failed for every persona ('One or more profiles have no page layout assigned for the Lead Object'). This PR assigns a new Lead-Persona Lead Layout on Persona Base. It holds standard fields (Name, Company, Email, Phone, Status, Lead Source, Lead Source Detail, Owner) and none of the enquiry fields, which come only from the Recruitment app's Dynamic Forms page. Please accept this layout assignment, or choose another base Lead layout.",
+      "owner": "person"
+    }
+  ],
+  "next": "reviewers"
 }
