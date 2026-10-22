@@ -7,10 +7,12 @@
 //   node scripts/personas.mjs --org <alias> --mode scratch
 //   node scripts/personas.mjs --org <alias> --mode jwt     (shared orgs; needs SFDX_CLIENT_ID, JWT_KEY_FILE, INSTANCE_URL)
 //
-// Secrets never reach stdout: passwords are masked in GitHub Actions and exported through $GITHUB_ENV
-// (locally: tests/e2e/.auth/persona.env). Frontdoor URLs only ever go to the git-ignored .auth folder.
+// Secrets never reach stdout or the job environment: passwords go only to the git-ignored
+// tests/e2e/.auth/persona.env (read by Playwright's global setup), as do frontdoor URLs. Never export them
+// through $GITHUB_ENV: an agent that runs this script captures the ::add-mask:: line itself, so the runner
+// would print the value unmasked in later steps' env blocks (PIPE-14).
 import { execFileSync } from 'node:child_process';
-import { readFileSync, writeFileSync, mkdirSync, appendFileSync, rmSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, rmSync, existsSync } from 'node:fs';
 import { randomBytes } from 'node:crypto';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -94,9 +96,10 @@ for (const p of catalogue) {
   writeFileSync(apex, `System.setPassword('${user.Id}', '${password}');`, { mode: 0o600 });
   sf('apex', 'run', '-o', org, '-f', apex);
   rmSync(apex);
-  const envLine = `PERSONA_PASSWORD_${p.key.toUpperCase().replace(/-/g, '_')}=${password}\n`;
-  if (process.env.GITHUB_ENV) appendFileSync(process.env.GITHUB_ENV, envLine);
-  appendFileSync(join(authDir, 'persona.env'), envLine, { mode: 0o600 });
+  const envName = `PERSONA_PASSWORD_${p.key.toUpperCase().replace(/-/g, '_')}`;
+  const envFile = join(authDir, 'persona.env');
+  const kept = existsSync(envFile) ? readFileSync(envFile, 'utf8').split('\n').filter((l) => l && !l.startsWith(`${envName}=`)) : [];
+  writeFileSync(envFile, [...kept, `${envName}=${password}`].join('\n') + '\n', { mode: 0o600 });
 
   // JWT login comes after the password change: setting a password ends the user's existing sessions.
   if (mode === 'jwt') {
