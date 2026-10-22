@@ -46,7 +46,9 @@ Option 3.
 - **Credentials.** Each pool sandbox has its own JWT certificate on the pipeline External Client App
   (`sandbox-setup/prepare-pool-sandbox.sh`), so no QA or production key opens it. Only the trusted lease job
   (environment `sandbox-pool`) holds that key. Agents and PR code get short-lived access tokens, for the admin
-  and each persona, encrypted in transit, and the tokens are revoked at the end of the job.
+  and each persona, encrypted in transit. They are forgotten at the end of the job but not revoked: Salesforce
+  returns the same session to repeated JWT logins for one user and app, so a revoke ended another job's session
+  (#36's conflict repair). They expire with the sandbox's session timeout.
 - **Persona MFA.** Each lease clears the persona's registered authenticator (`personas.mjs --reset-mfa`), and
   Playwright registers a fresh one. No MFA secret is kept per sandbox.
 - **Tests.** Only this repo's Apex test classes run (`--class-names`), because the sandbox also holds the
