@@ -2,9 +2,10 @@
  * Issue #20: the Lead list view "My open enquiries" is hidden from a persona outside the Recruitment
  * Officer persona public group (AC3, TST-03, SHR-15). ListView is deployed metadata, referenced by API
  * name (TST-06).
- * Kept apart from MyOpenEnquiriesListViewTest: once a user without Lead access queries Lead list views,
- * the platform returns none to any user for the rest of that test class, which would make the positive
- * test depend on run order (TST-11).
+ * Observed workaround (TST-11): in a check-only deploy, a ListView query filtered on SobjectType = 'Lead'
+ * by a user without Lead access makes that filter return no rows to any user for the rest of the run,
+ * which would also let this denial pass vacuously. Filtering on DeveloperName alone is not affected, so
+ * the query filters on DeveloperName and keeps only Lead rows in Apex.
  */
 @IsTest
 private class MyOpenEnquiriesListViewDenialTest {
@@ -16,7 +17,13 @@ private class MyOpenEnquiriesListViewDenialTest {
     }
 
     private static List<ListView> visibleListViews() {
-        return [SELECT Id, Name, DeveloperName FROM ListView WHERE SobjectType = 'Lead' AND DeveloperName = :LIST_VIEW_NAME WITH USER_MODE];
+        List<ListView> leadViews = new List<ListView>();
+        for (ListView v : [SELECT Id, Name, DeveloperName, SobjectType FROM ListView WHERE DeveloperName = :LIST_VIEW_NAME WITH USER_MODE]) {
+            if (v.SobjectType == 'Lead') {
+                leadViews.add(v);
+            }
+        }
+        return leadViews;
     }
 
     @IsTest

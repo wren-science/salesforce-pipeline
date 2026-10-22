@@ -1,7 +1,7 @@
 {
   "issue": 20,
   "stage": "review-required",
-  "role": "developer",
+  "role": "repair",
   "summary": "Built the 'My open enquiries' Lead list view (filterScope Mine, LEAD.CONVERTED equals 0, columns Name, Company, Lead Source, Lead Source Detail, Lead Status, Created Date, shared only to group Persona_Recruitment_Officer). Granted read-only FLS on Lead.LeadSource in Persona_Recruitment_Officer so the Lead Source column renders for the persona. All Apex (RunLocalTests) and Playwright tests pass in the agent scratch org.",
   "standards": ["DES-01", "DES-02", "DES-04", "DES-05", "DES-11", "SHR-03", "SHR-04", "SHR-15", "TST-03", "TST-04", "TST-06", "TST-11", "TST-16", "TST-17", "TST-18", "PIPE-04", "PIPE-11", "PIPE-12", "PIPE-15"],
   "acceptanceCriteria": [
@@ -17,10 +17,11 @@
     "Harness observations for a person (not changed here): scripts/personas.mjs appends to tests/e2e/.auth/persona.env, and global-setup takes the first (stale) line on a rerun; frontdoor URLs expire if Playwright does not run soon after personas.mjs.",
     "Locally, sf source tracking held a stale path, so the final deploys used sf project convert source plus deploy --metadata-dir (same content as --source-dir force-app).",
     "Converted Leads are excluded explicitly with LEAD.CONVERTED equals 0 (Lightning shows 'Filtered by Converted').",
-    "No Data_Retention_Policy__mdt row: no new object (DM-04)."
+    "No Data_Retention_Policy__mdt row: no new object (DM-04).",
+    "Repair 1 (validate/qa, TST-11): MyOpenEnquiriesListViewTest failed in QA (0 list views) because test change 1 did not hold across classes. Reproduced in the agent scratch org with the same check-only deploy and RunSpecifiedTests set: the positive test passes alone and fails when run alongside MyOpenEnquiriesListViewDenialTest. A diagnostic class (dry-run only, never committed) showed that after the minimum-access user queries ListView with SobjectType = 'Lead', that filter returns 0 rows for every user, admin included, for the rest of the run. Filtering on DeveloperName alone stays correct: Recruitment Officer 1, Minimum Access 0, admin 1. Both tests now query on DeveloperName and keep Lead rows in Apex. The positive test also asserts SobjectType = 'Lead'. No assertion was removed or loosened. This also stops the denial test from passing vacuously. Verified with a check-only deploy of the QA test set (4/4 pass), RunLocalTests (7/7) and Playwright (5/5) in the agent scratch org."
   ],
   "scratchOrg": "agent",
-  "attempts": { "repair": 0, "review": 0 },
+  "attempts": { "repair": 1, "review": 0 },
   "openQuestions": [],
   "next": "reviewers"
 }
