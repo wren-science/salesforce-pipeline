@@ -165,7 +165,7 @@ jobs:
             other code) brought up to integration, with the persona users ready. It is the only org you may touch.
             Build the story in force-app until every test passes:
               sf project deploy start --source-dir force-app --target-org agent --test-level NoTestRun --wait 30
-              sf apex run test --target-org agent --class-names <each test class in force-app> --wait 30
+              sf apex run test --target-org agent --class-names <each test class in force-app> --result-format junit --output-dir .sf-test --wait 30
                 (never RunLocalTests: the sandbox also holds the org's other code and its tests)
               cd tests/e2e && npx playwright test        (SF_BASE_URL and the persona logins are already set up)
             Persona users already have their permission set groups; deploying force-app updates what those grant.
