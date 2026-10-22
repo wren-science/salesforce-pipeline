@@ -1,5 +1,5 @@
 import { test, expect } from '../support/evidence';
-import { personaUserId, query, retrieveMetadata, runApex } from '../support/org';
+import { personaUserId, query, retrieveMetadata, runApex } from './support/org';
 
 // Issue #20: Recruitment Officers get a "My open enquiries" Lead list view, showing only the
 // unconverted Leads they own, shared only with the persona public group (DES-02, SHR-03, SHR-04).
@@ -40,10 +40,19 @@ test.describe('#20 My open enquiries list view', () => {
   });
 
   test.afterAll(async () => {
+    // Remove what the conversion actually created (in QA, NPSP may name the Account differently), and
+    // fail loudly if anything is left behind in a shared org (PIPE-15).
     runApex(`
-      Database.delete([SELECT Id FROM Contact WHERE Account.Name = '${marker}'], false);
-      Database.delete([SELECT Id FROM Account WHERE Name = '${marker}'], false);
-      Database.delete([SELECT Id FROM Lead WHERE Company = '${marker}'], false);
+      List<Lead> leads = [SELECT Id, ConvertedContactId, ConvertedAccountId FROM Lead WHERE Company = '${marker}'];
+      Set<Id> contactIds = new Set<Id>();
+      Set<Id> accountIds = new Set<Id>();
+      for (Lead l : leads) {
+        if (l.ConvertedContactId != null) contactIds.add(l.ConvertedContactId);
+        if (l.ConvertedAccountId != null) accountIds.add(l.ConvertedAccountId);
+      }
+      delete [SELECT Id FROM Contact WHERE Id IN :contactIds OR AccountId IN :accountIds];
+      delete [SELECT Id FROM Account WHERE Id IN :accountIds];
+      delete [SELECT Id FROM Lead WHERE Id IN :leads];
     `);
   });
 

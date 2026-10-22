@@ -1,6 +1,6 @@
 /**
  * Issue #20: the Lead list view "My open enquiries" is visible to the Recruitment Officer persona,
- * which gets it through its persona public group (AC1, AC3, SHR-03, SHR-04). The denial test for a persona
+ * which gets it through its persona public group (AC1, SHR-03, SHR-04). The denial test for a persona
  * outside that group (TST-03, SHR-15) is in MyOpenEnquiriesListViewDenialTest. ListView is deployed
  * metadata, referenced by API name (TST-06).
  * The list view adds no Apex, so there is no bulk path to test (TST-03 bulk applies to trigger and batch paths).
