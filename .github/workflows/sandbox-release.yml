@@ -1,0 +1,38 @@
+name: Sandbox release
+
+# Releases a pool sandbox (ADR 0003) when its holder closes without the merge gate: a person merges or closes
+# a PR, or closes a story. The merge gate releases on its own merges (a GITHUB_TOKEN merge starts no workflows).
+# pull_request_target runs integration's copy of this file and never checks out the PR, so it is safe for
+# any PR.
+on:
+  pull_request_target:
+    types: [closed]
+  issues:
+    types: [closed]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sandbox-lease
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: integration
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
+          BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          node scripts/sandbox-lease.mjs release --holder "$NUMBER"
+          STORY=$(printf '%s' "$BRANCH" | sed -nE 's#^feature/([0-9]+)-.*#\1#p')
+          [ -z "$STORY" ] || node scripts/sandbox-lease.mjs release --holder "$STORY"

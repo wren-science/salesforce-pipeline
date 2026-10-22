@@ -78,6 +78,7 @@ jobs:
         env:
           EVIDENCE: lean
           PERSONA_TOTP_RECRUITMENT_OFFICER: ${{ secrets.PERSONA_TOTP_RECRUITMENT_OFFICER }}
+          PERSONA_MFA_PERSISTENT: "1"
         run: |
           npm ci --no-fund --no-audit
           npx playwright install --with-deps chromium

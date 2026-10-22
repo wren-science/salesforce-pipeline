@@ -17,7 +17,7 @@ Production deployment is disabled. Autonomy stops at QA.
 ## How a story flows
 
 An issue (story, personas, acceptance criteria) goes through a planner agent, a test writer and a developer
-in their own scratch org, PR checks, persona tests with evidence, a check-only deploy to QA and three review
+in the story's leased pool sandbox (a source-tracked copy of the real org), PR checks, persona tests with evidence, a check-only deploy to QA and three review
 agents. A person approves the PR, and the merge deploys to the QA sandbox and reruns the persona regression.
 Details: [docs/pipeline/architecture.md](docs/pipeline/architecture.md).
 
@@ -25,7 +25,7 @@ Details: [docs/pipeline/architecture.md](docs/pipeline/architecture.md).
 
 | Branch | Environment |
 | --- | --- |
-| `feature/<issue>-<slug>` | Scratch orgs per story (agents, PR tests) |
+| `feature/<issue>-<slug>` | The story's leased pool sandbox (agents, PR tests, repair) |
 | `pipeline/<topic>` | Maintainer changes to the pipeline |
 | `integration` (default) | QA sandbox (dev org), deployed on every merge |
 | `uat`, `preprod`, `main` | Planned (sfdx-hardis promotion PRs) |

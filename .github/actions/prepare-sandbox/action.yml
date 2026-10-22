@@ -1,0 +1,64 @@
+name: Prepare a leased pool sandbox
+description: >
+  Trusted lease job only (ADR 0003). Logs in to the leased sandbox with its own JWT key, brings it up to
+  integration (platform packages, integration's force-app), prepares the persona users with a fresh MFA
+  registration, and hands over short-lived access tokens, encrypted, as an artifact. Never run PR code here.
+inputs:
+  sandbox:
+    description: Sandbox name from the lease (agent1, …)
+    required: true
+  username:
+    required: true
+  instance-url:
+    required: true
+  client-id:
+    required: true
+  jwt-key:
+    required: true
+  handoff-key:
+    required: true
+  artifact:
+    description: Name of the encrypted handover artifact
+    required: true
+  sync:
+    description: "'true' on a new lease: install packages and deploy integration's force-app first"
+    required: false
+    default: 'true'
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        SANDBOX: ${{ inputs.sandbox }}
+        SB_USERNAME: ${{ inputs.username }}
+        SB_URL: ${{ inputs.instance-url }}
+        SB_CLIENT_ID: ${{ inputs.client-id }}
+        SB_JWT_KEY: ${{ inputs.jwt-key }}
+        HANDOFF_KEY: ${{ inputs.handoff-key }}
+        SYNC: ${{ inputs.sync }}
+      run: |
+        umask 077
+        KEY="$RUNNER_TEMP/sandbox-jwt.key"
+        printf '%s\n' "$SB_JWT_KEY" > "$KEY"
+        sf org login jwt --username "$SB_USERNAME" --client-id "$SB_CLIENT_ID" --jwt-key-file "$KEY" \
+          --instance-url "$SB_URL" --alias agent --set-default >/dev/null
+        echo "Leased sandbox: $SANDBOX"
+        # A new lease: platform packages, then integration's metadata. A pool sandbox may come from QA or production
+        # and may hold a previous story's work, so each story starts its sandbox from integration.
+        if [ "$SYNC" = "true" ]; then
+          node scripts/install-packages.mjs --org agent
+          sf project deploy start --source-dir force-app --target-org agent --test-level NoTestRun --wait 30 >/dev/null
+          echo "Deployed integration's force-app to $SANDBOX"
+        fi
+        SFDX_CLIENT_ID="$SB_CLIENT_ID" JWT_KEY_FILE="$KEY" INSTANCE_URL="$SB_URL" \
+          node scripts/personas.mjs --org agent --mode jwt --reset-mfa
+        rm -f "$KEY"
+        node scripts/sandbox-handover.mjs pack handover.json
+        openssl enc -aes-256-cbc -pbkdf2 -salt -pass env:HANDOFF_KEY -in handover.json -out handover.enc
+        rm -f handover.json
+        # No logout here: it could revoke the access tokens just handed over. This runner is discarded.
+    - uses: actions/upload-artifact@v4
+      with:
+        name: ${{ inputs.artifact }}
+        path: handover.enc
+        retention-days: 1
