@@ -26,6 +26,8 @@ GitHub Actions on label and check events. Every design and security decision sta
    When all three are approve-able, the commit gets the status `review/agents`.
 8. **Repair agent** (`agent-repair.yml`) when persona tests or QA validation fail, or a reviewer asks for
    rework: at most 3 attempts (one per commit), then a person (`human:approval-required`).
+   The merge gate also dispatches it when a story PR conflicts with integration (another story merged first):
+   GitHub runs no PR checks on a conflicting PR, so without this it would stall. Repair rebases and keeps both stories' changes.
 9. **Merge gate** (`merge-gate.yml`, `scripts/merge-gate.mjs`): when `Static checks`, `tests/personas`,
    `validate/qa` and `review/agents` have passed on the PR's current commit, it marks the PR ready and squash-merges it.
    Agents cannot approve or merge; the gate is plain code. If `integration` has moved since the QA

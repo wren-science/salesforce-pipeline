@@ -36,6 +36,19 @@ for (const pr of prs) {
   const say = (m) => log(`#${n} ${m}`);
   if (labels.includes('human:approval-required')) { say('waiting for a person (human:approval-required)'); continue; }
 
+  // A PR that conflicts with integration gets no pull_request checks at all, so it would stall silently.
+  // Hand it to the repair agent (once per commit): it rebases and resolves the conflict.
+  let detail = api(`repos/${repo}/pulls/${n}`);
+  if (detail.mergeable === null) { execFileSync('sleep', ['5']); detail = api(`repos/${repo}/pulls/${n}`); }
+  if (detail.mergeable === false && detail.mergeable_state === 'dirty') {
+    const repairing = JSON.parse(gh('api', '--paginate', '--slurp', `repos/${repo}/issues/${n}/comments?per_page=100`)).flat()
+      .some((c) => c.body?.startsWith(`<!-- agent:repair sha=${sha} -->`));
+    if (repairing) { say('conflicts with integration; a repair is already under way for this commit'); continue; }
+    say('conflicts with integration; dispatching the repair agent');
+    if (!dryRun) gh('workflow', 'run', 'agent-repair.yml', '--repo', repo, '--ref', 'integration', '-f', `pr=${n}`, '-f', 'reason=merge conflict with integration (another story merged first)');
+    continue;
+  }
+
   // Results for this exact commit: commit statuses (latest per context) and check runs.
   const statuses = {};
   for (const s of api(`repos/${repo}/commits/${sha}/statuses?per_page=100`)) statuses[s.context] ??= s;
