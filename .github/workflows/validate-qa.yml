@@ -1,4 +1,6 @@
 name: Validate against QA
+# The run name carries the PR branch and commit for the agent repair workflow (see pr-tests.yml).
+run-name: "Validate against QA · ${{ github.event.workflow_run.head_branch }} · ${{ github.event.workflow_run.head_sha }}"
 
 # Check-only deploy of a PR's Salesforce source to the QA sandbox.
 #
