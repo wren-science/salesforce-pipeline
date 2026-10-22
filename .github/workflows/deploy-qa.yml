@@ -1,0 +1,56 @@
+name: Deploy to QA
+
+# Gate 3: runs when a promotion PR is merged into qa. The qa environment requires a
+# maintainer's approval before this job starts, and only the qa branch can use it.
+on:
+  push:
+    branches: [qa]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-qa
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to QA sandbox
+    runs-on: ubuntu-latest
+    environment: qa
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: ./.github/actions/setup-sf
+
+      - name: Deploy with sfdx-hardis
+        env:
+          CI: "true"
+          ORG_ALIAS: qa
+          CONFIG_BRANCH: qa
+          CI_COMMIT_REF_NAME: qa
+          SFDX_CLIENT_ID_QA: ${{ secrets.SFDX_CLIENT_ID_QA }}
+          SFDX_CLIENT_CERT_QA: ${{ secrets.SFDX_CLIENT_CERT_QA }}
+          TARGET_USERNAME: ${{ vars.TARGET_USERNAME }}
+          INSTANCE_URL: ${{ vars.INSTANCE_URL }}
+          SFDX_DISABLE_FLOW_DIFF: "true"
+          FORCE_COLOR: "1"
+        run: |
+          if [ -z "$(find force-app -type f ! -name .gitkeep -print -quit)" ]; then
+            echo "force-app is empty; nothing to deploy"; exit 0
+          fi
+          TEST_LEVEL=$(bash .github/scripts/test-level.sh)
+          echo "Test level: $TEST_LEVEL"
+          sf hardis auth login
+          sf hardis project deploy smart --testlevel "$TEST_LEVEL"
+
+      - name: Upload sfdx-hardis reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hardis-report
+          path: hardis-report
+          if-no-files-found: ignore

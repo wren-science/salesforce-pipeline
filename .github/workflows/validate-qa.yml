@@ -1,0 +1,92 @@
+name: Validate against QA
+
+# Check-only deploy of a PR's Salesforce source to the QA sandbox.
+#
+# Why workflow_run: this file always runs from the integration branch, never from the
+# PR, so a PR can't change what runs while the QA login is loaded. Only force-app/ and
+# manifest/ are taken from the PR; config and scripts come from integration.
+# The result is posted back to the PR commit as the status "validate/qa", which branch
+# protection requires.
+on:
+  workflow_run:
+    workflows: [PR checks]
+    types: [completed]
+
+permissions:
+  contents: read
+  statuses: write
+  actions: read
+
+jobs:
+  validate:
+    name: Check-only deploy to QA
+    # Same-repo PRs only (agent and maintainer branches). Fork PRs never get the QA login.
+    if: >
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: ubuntu-latest
+    environment: qa-validate
+    env:
+      HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      STATUS_URL: ${{ github.api_url }}/repos/${{ github.repository }}/statuses/${{ github.event.workflow_run.head_sha }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - name: Mark validate/qa pending
+        run: |
+          gh api "$STATUS_URL" -f state=pending -f context=validate/qa \
+            -f description="Check-only deploy to QA running" -f target_url="$RUN_URL" >/dev/null
+
+      - name: PR checks failed, so skip
+        if: github.event.workflow_run.conclusion != 'success'
+        run: |
+          gh api "$STATUS_URL" -f state=failure -f context=validate/qa \
+            -f description="PR checks failed; QA validation skipped" -f target_url="$RUN_URL" >/dev/null
+          exit 1
+
+      - name: Check out integration (trusted config and scripts)
+        uses: actions/checkout@v4
+        with:
+          ref: integration
+          fetch-depth: 0
+
+      - name: Take only Salesforce source from the PR
+        run: |
+          git fetch --no-tags origin "$HEAD_SHA"
+          rm -rf force-app manifest
+          git checkout "$HEAD_SHA" -- force-app manifest
+          git status --short | head -50
+
+      - uses: ./.github/actions/setup-sf
+
+      - name: Check-only deploy with sfdx-hardis
+        env:
+          CI: "true"
+          ORG_ALIAS: integration
+          CONFIG_BRANCH: integration
+          CI_COMMIT_REF_NAME: integration
+          SFDX_CLIENT_ID_INTEGRATION: ${{ secrets.SFDX_CLIENT_ID_INTEGRATION }}
+          SFDX_CLIENT_CERT_INTEGRATION: ${{ secrets.SFDX_CLIENT_CERT_INTEGRATION }}
+          TARGET_USERNAME: ${{ vars.TARGET_USERNAME }}
+          INSTANCE_URL: ${{ vars.INSTANCE_URL }}
+          SFDX_DISABLE_FLOW_DIFF: "true"
+          FORCE_COLOR: "1"
+        run: |
+          TEST_LEVEL=$(bash .github/scripts/test-level.sh)
+          echo "Test level: $TEST_LEVEL"
+          sf hardis auth login
+          sf hardis project deploy smart --check --testlevel "$TEST_LEVEL"
+
+      - name: Report result on the PR
+        if: always() && github.event.workflow_run.conclusion == 'success'
+        run: |
+          if [ "${{ job.status }}" = "success" ]; then S=success; D="Check-only deploy to QA passed"; else S=failure; D="Check-only deploy to QA failed"; fi
+          gh api "$STATUS_URL" -f state=$S -f context=validate/qa -f description="$D" -f target_url="$RUN_URL" >/dev/null
+
+      - name: Upload sfdx-hardis reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hardis-report
+          path: hardis-report
+          if-no-files-found: ignore

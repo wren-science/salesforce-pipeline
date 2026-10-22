@@ -1,0 +1,24 @@
+name: Set up Salesforce CLI and sfdx-hardis
+description: Installs pinned versions so every run uses the same tools.
+inputs:
+  code-analyzer:
+    description: Also install Salesforce Code Analyzer
+    default: "false"
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v4
+      with:
+        node-version: "22"
+    - name: Install Salesforce CLI 2.154.4 and sfdx-hardis 8.15.0
+      shell: bash
+      env:
+        SF_AUTOUPDATE_DISABLE: "true"
+        SF_DISABLE_TELEMETRY: "true"
+      run: |
+        npm install --global --no-fund --no-audit @salesforce/cli@2.154.4
+        echo y | sf plugins install sfdx-hardis@8.15.0
+        if [ "${{ inputs.code-analyzer }}" = "true" ]; then
+          echo y | sf plugins install code-analyzer@5.16.0
+        fi
+        sf plugins

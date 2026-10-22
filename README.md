@@ -55,14 +55,14 @@ Details: [docs/pipeline/architecture.md](docs/pipeline/architecture.md).
 | `force-app/` | Salesforce source (Sales Cloud metadata only) |
 | `manifest/` | `package.xml` for deploys; `package-no-overwrite.xml` lists metadata sfdx-hardis must never overwrite |
 | `.sfdx-hardis.yml`, `config/` | sfdx-hardis and scratch-org configuration |
-| `.github/hardis-templates/` | sfdx-hardis's stock GitHub workflows, switched on in Phase 1 |
+| `.github/workflows/` | CI: PR checks, QA validation, QA deploy, wiki (see docs/pipeline/ci.md) |
 
 ## Status
 
 | Phase | State |
 | --- | --- |
 | 0. Bootstrap: project, standards, docs | Done |
-| 1. Pipeline without AI | Next |
+| 1. Pipeline without AI | In progress |
 | 2. Planner and reviewers | Not started |
 | 3. Autonomous development | Not started |
 | 4. Release to QA | Not started |

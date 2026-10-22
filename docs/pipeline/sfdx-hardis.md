@@ -29,7 +29,7 @@ request merged between long-lived branches, and each branch maps to one org.
 | `manifest/package.xml` | What gets deployed; grows as stories add metadata |
 | `manifest/package-no-overwrite.xml` | Metadata never overwritten in the target |
 | `config/project-scratch-def.json` | Shape of the per-agent scratch org (plain Enterprise, no NPSP) |
-| `.github/hardis-templates/*.yml` | sfdx-hardis's stock GitHub workflows, parked until Phase 1 so PRs don't fail before secrets exist |
+| `.github/workflows/*.yml` | This repo's CI, which calls sfdx-hardis (see ci.md); stock templates are kept in `.github/hardis-templates/` |
 
 ## Authentication
 
