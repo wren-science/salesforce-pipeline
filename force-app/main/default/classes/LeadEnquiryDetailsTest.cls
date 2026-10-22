@@ -307,8 +307,10 @@ private class LeadEnquiryDetailsTest {
             try {
                 List<Lead> visible = [SELECT Study_Level__c, Citizenship_Status__c FROM Lead WHERE Id = :l.Id WITH USER_MODE];
                 Assert.fail('The persona read ' + visible.size() + ' Leads with enquiry details');
-            } catch (System.SecurityException e) {
-                Assert.isTrue(e.getMessage().contains('Access to entity \'Lead\' denied'), 'Refused for missing Lead access: ' + e.getMessage());
+            } catch (System.QueryException e) {
+                // User mode refuses a query on a standard object the user cannot read as "not supported"
+                // (observed in the sandbox, .agent/5/diagnostics/developer-1-lead-denial-exceptions.txt).
+                Assert.isTrue(e.getMessage().contains('sObject type \'Lead\' is not supported'), 'Refused for missing Lead access: ' + e.getMessage());
                 refused = true;
             }
         }
