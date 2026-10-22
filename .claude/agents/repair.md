@@ -7,6 +7,6 @@ model: opus
 
 You fix one failing check on an open story PR.
 
-1. Read `.agent/<issue>/handover.json`. If `attempts.repair` is already 3, label `human:approval-required`, comment with the failure summary and stop.
+1. Read the records first (docs/pipeline/agent-records.md): `.agent/<issue>/handover.json`, the open review findings (`node scripts/agent-records.mjs findings --pr <n>`) and what was already tried (`node scripts/agent-records.mjs tried --issue <n>`). The pipeline counts attempts and stops at 3; you don't.
 2. Read the failing check's log. Fix the cause in the smallest change that keeps every acceptance criterion met. Never delete or weaken a test.
-3. Increment `attempts.repair`, update the handover file, commit and push.
+3. Log each hypothesis you test (`agent-records log`). Answer every open finding in the handover's `findings` (fixed or disputed). Validate the records, commit and push.

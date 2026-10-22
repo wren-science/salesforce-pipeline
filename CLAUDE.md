@@ -46,7 +46,10 @@ You are one role in a delivery pipeline (see `docs/pipeline/architecture.md`). Y
 State lives in GitHub, never in conversation history (`PIPE-06`):
 
 - Labels mark the stage (`docs/pipeline/handover.md`).
-- Before you finish, write or update `.agent/<issue>/handover.json` and commit it with your work.
+- Records have fixed shapes (`docs/pipeline/agent-records.md`); write and check them with `scripts/agent-records.mjs`,
+  never as free-form reports. Read what was tried (`tried`) before investigating, log each step you test (`log`), and
+  before you finish write `.agent/<issue>/handover.json` (version 2), validate it, and commit it with your work.
+  Reviewers write `review.json`; the pipeline posts it.
 - Stop and ask a person (label `human:approval-required`, plus a comment saying why) when the
   requirement is ambiguous, a standard conflicts with the story, an ADR is needed, or you hit a retry limit.
 

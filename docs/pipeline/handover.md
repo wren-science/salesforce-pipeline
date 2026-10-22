@@ -18,7 +18,11 @@ runs and the committed `.agent/handover.json`.
 | `release:qa-ready` | Release | Promotion PR and evidence pack ready; waiting for Gate 3 |
 | `release:qa-deployed` | Deploy workflow | Deployed to QA |
 
-## `.agent/handover.json`
+## Agent records
+
+The handover, the investigation log and review findings have fixed shapes: see [agent-records.md](agent-records.md).
+
+## `.agent/handover.json` (legacy shape; version 2 is in agent-records.md)
 
 Written by every agent before it finishes, committed on the story's branch.
 
