@@ -66,7 +66,7 @@ for (const pr of prs) {
   if (dryRun) { say('would merge'); merged++; continue; }
   if (pr.draft) gh('pr', 'ready', String(n), '--repo', repo);
   const body = [
-    'Merged by the merge gate: static checks, persona tests in the story's sandbox (tests/personas), check-only deploy to QA ' +
+    'Merged by the merge gate: static checks, persona tests in the story sandbox (tests/personas), check-only deploy to QA ' +
       '(validate/qa) and the three reviewer agents (review/agents) all passed on this commit.',
     labels.includes('human:review-wanted') ? 'A person approved it (human:review-wanted).' : 'No person was asked for, and none asked to review.',
   ].join(' ');
