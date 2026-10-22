@@ -47,4 +47,6 @@ State lives in GitHub, never in conversation history (`PIPE-06`):
 
 - Salesforce CLI (`sf`) and sfdx-hardis (`sf hardis ... --agent`) are the only ways to touch an org.
 - Playwright tests live in `tests/e2e/specs`, named `#<issue> AC<n>: <what it proves>` (`PIPE-11`).
+- Test helpers may be added in `tests/e2e/support/`. `global-setup.ts`, `totp.ts` and `evidence.ts` are the
+  pipeline's harness: CI always runs integration's copies of those three, so changes to them in a story have no effect.
 - Keep commits small and messages specific; reference the issue number.
