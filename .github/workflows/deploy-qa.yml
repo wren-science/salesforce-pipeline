@@ -79,11 +79,17 @@ jobs:
           EVIDENCE: lean
           PERSONA_TOTP_RECRUITMENT_OFFICER: ${{ secrets.PERSONA_TOTP_RECRUITMENT_OFFICER }}
           PERSONA_MFA_PERSISTENT: "1"
+          # The org that specs' data helpers (seeding, read-backs) use as the pipeline's own identity.
+          SF_DATA_ORG: qa-admin
         run: |
           npm ci --no-fund --no-audit
           npx playwright install --with-deps chromium
           export SF_BASE_URL=$(node ../../scripts/lightning-url.mjs qa-admin)
           npx playwright test
+
+      - name: Remove the tests' records from QA (PIPE-15)
+        if: always()
+        run: node scripts/cleanup-test-data.mjs --org qa-admin
 
       - name: Log out of QA
         if: always()
