@@ -54,7 +54,7 @@ jobs:
           REASON=""
           if [ "$WF" = "PR tests" ] && [ "$CONCLUSION" = "failure" ]; then REASON="persona tests failed in the story's sandbox (tests/personas)"; fi
           if [ "$WF" = "Validate against QA" ] && [ "$CONCLUSION" = "failure" ]; then REASON="check-only deploy to QA failed (validate/qa)"; fi
-          if [ "$WF" = "Agent review" ] && echo ",$LABELS," | grep -q ",agent:rework-required,"; then REASON="reviewer requested changes"; fi
+          if [ "$WF" = "Agent review" ] && [ "$CONCLUSION" = "success" ] && echo ",$LABELS," | grep -q ",agent:rework-required,"; then REASON="reviewer requested changes"; fi
           [ -n "$REASON" ] || exit 0
           COMMENTS=$(gh api --paginate "repos/$R/issues/$PR/comments" --jq '.[] | select(.body | startswith("<!-- agent:repair")) | .body')
           # One repair per commit: a tests failure and a QA failure on the same commit start one repair.
