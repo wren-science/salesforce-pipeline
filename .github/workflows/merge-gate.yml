@@ -5,12 +5,22 @@ name: Merge gate
 # (human:review-wanted) or where an agent asks (human:approval-required). Rules: scripts/merge-gate.mjs.
 #
 # Runs integration's code only (never the PR's) and holds only this workflow's GITHUB_TOKEN.
+#
+# Event-driven, no schedule. The gate is stateless, so it runs on every event that can change its answer:
+# - checks and agent reviews completing (workflow_run)
+# - a person changing labels or marking a PR ready (pull_request_target: integration's copy of this file,
+#   and it never checks out the PR). A person who approves a human:review-wanted PR removes the label to
+#   release it; pull_request_review is not used, because it would run the PR's own copy of the workflow.
+# - a sandbox freed when a person closes a PR or story (sandbox-release.yml dispatches the gate)
+# The gate's own actions (merging, re-running a stale QA validation, re-running queued work) start runs
+# whose completion triggers it again.
 on:
   workflow_run:
     workflows: [PR tests, Validate against QA, Agent review]
     types: [completed]
-  schedule:
-    - cron: '*/15 * * * *'
+  pull_request_target:
+    types: [labeled, unlabeled, ready_for_review]
+    branches: [integration]
   workflow_dispatch:
 
 permissions:
@@ -23,6 +33,11 @@ concurrency:
 jobs:
   gate:
     name: Merge ready story PRs
+    # Label events: only a person's labels matter here; agents' stage labels come with a check run anyway.
+    if: >
+      github.event_name != 'pull_request_target' ||
+      github.event.action == 'ready_for_review' ||
+      startsWith(github.event.label.name, 'human:')
     runs-on: ubuntu-latest
     permissions:
       contents: write

@@ -14,7 +14,7 @@ runs and the committed `.agent/handover.json`.
 | `agent:review-required` | Developer / Validate | Checks passed; reviewers may start |
 | `agent:rework-required` | Reviewer | Blocking findings; developer must respond |
 | `human:approval-required` | Any agent, merge gate | Stopped: needs a person (ambiguity, conflict, retry limit); never auto-merged |
-| `human:review-wanted` | Anyone | A person wants to review: the merge gate waits for their approval |
+| `human:review-wanted` | Anyone | A person wants to review: the merge gate waits for their approval of the current commit. Approve, then remove the label (that runs the gate) |
 | `release:qa-ready` | Release | Promotion PR and evidence pack ready; waiting for Gate 3 |
 | `release:qa-deployed` | Deploy workflow | Deployed to QA |
 

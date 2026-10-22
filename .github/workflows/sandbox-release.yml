@@ -24,6 +24,7 @@ jobs:
       contents: read
       issues: write
       pull-requests: write
+      actions: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -36,3 +37,5 @@ jobs:
           node scripts/sandbox-lease.mjs release --holder "$NUMBER"
           STORY=$(printf '%s' "$BRANCH" | sed -nE 's#^feature/([0-9]+)-.*#\1#p')
           [ -z "$STORY" ] || node scripts/sandbox-lease.mjs release --holder "$STORY"
+          # A sandbox may now be free for queued work: let the merge gate run the queue.
+          gh workflow run merge-gate.yml --repo "${{ github.repository }}" --ref integration

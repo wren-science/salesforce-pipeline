@@ -16,7 +16,7 @@ accept them, approve a PR, or merge (PIPE-08). A decision posted by `claude[bot]
 | An ADR (01 §4: new object, OWD change, package, integration, MUST exception) | The platform owner, or their delegate |
 | A permission or access change the story didn't ask for (DES-01) | The platform owner, or their delegate |
 | A PR whose required checks and reviewer agents have all passed | The merge gate (`merge-gate.yml`), which is plain code, not an agent |
-| A PR labelled `human:review-wanted` | A person who approves the PR's current commit |
+| A PR labelled `human:review-wanted` | A person who approves the PR's current commit, then removes the label (which runs the merge gate) |
 | A fresh repair budget after the 3-attempt limit (`<!-- agent:repair-reset -->` comment, with the reason) | The platform owner, or their delegate |
 
 ## The current delegation (proof of concept)
