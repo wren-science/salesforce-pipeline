@@ -12,3 +12,5 @@ Decisions: an access change the story didn't ask for is acceptable only with a r
 Focus: DES-01, DES-05, SHR (08), APX security rules (04), INT (11), UI security (14), QG-08. Every access change must go through the persona's permission set group and public group; no profile edits; no grants to individual users or roles (SHR-03).
 
 Post one review. Request changes and label `agent:rework-required` if anything is blocking.
+
+Output: `review.json` in the shape `docs/pipeline/agent-records.md` gives (finding ids `sec-<n>`, kept stable across rounds for the same problem). Validate it with `node scripts/agent-records.mjs validate review.json`. The pipeline renders and posts it; you never comment or label yourself.

@@ -181,13 +181,20 @@ jobs:
               sf apex run test --target-org agent --class-names <each test class in force-app> --wait 30
                 (never RunLocalTests: the sandbox also holds the org's other code and its tests)
               cd tests/e2e && npx playwright test
+            Start from the records (docs/pipeline/agent-records.md), not from scratch:
+              node scripts/agent-records.mjs findings --pr ${{ needs.gate.outputs.pr }}    (open review findings)
+              node scripts/agent-records.mjs tried --issue <the story's issue>          (what earlier agents already tried)
+            Never repeat a step already ruled out unless something changed, and say what. Log each hypothesis you test
+            with `node scripts/agent-records.mjs log --issue <issue> --role repair …`, and commit small diagnostics under
+            .agent/<issue>/diagnostics/. In .agent/<issue>/handover.json (version 2), answer every open finding in
+            "findings" as fixed or disputed (with a note), and validate it with `node scripts/agent-records.mjs validate`.
             Fix the cause; never weaken a test. Commit, then `git fetch origin integration`, `git rebase origin/integration`
             and `git push --force-with-lease origin HEAD:${{ needs.gate.outputs.branch }}`.
             Then: gh pr edit ${{ needs.gate.outputs.pr }} --remove-label agent:rework-required
           claude_args: |
             --model claude-opus-5-5
             --max-turns 120
-            --allowedTools "Read,Grep,Glob,Edit,Write,Bash(sf:*),Bash(cd tests/e2e && npx playwright test:*),Bash(npx playwright test:*),Bash(git add:*),Bash(git commit:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git push:*),Bash(git fetch origin integration),Bash(git rebase origin/integration),Bash(gh pr view:*),Bash(gh pr edit:*),Bash(gh run view:*),Bash(gh pr checks:*),Bash(ls:*),Bash(cat:*),Bash(head:*),Bash(tail:*),Bash(find:*),Bash(grep:*),Bash(wc:*),Bash(cd:*),Bash(pwd),Bash(mkdir:*),Bash(jq:*)"
+            --allowedTools "Read,Grep,Glob,Edit,Write,Bash(node scripts/agent-records.mjs:*),Bash(sf:*),Bash(cd tests/e2e && npx playwright test:*),Bash(npx playwright test:*),Bash(git add:*),Bash(git commit:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git push:*),Bash(git fetch origin integration),Bash(git rebase origin/integration),Bash(gh pr view:*),Bash(gh pr edit:*),Bash(gh run view:*),Bash(gh pr checks:*),Bash(ls:*),Bash(cat:*),Bash(head:*),Bash(tail:*),Bash(find:*),Bash(grep:*),Bash(wc:*),Bash(cd:*),Bash(pwd),Bash(mkdir:*),Bash(jq:*)"
             --disallowedTools "Edit(.github/**),Write(.github/**),Edit(manifest/**),Write(manifest/**),Bash(sf org login:*),Bash(sf org logout:*)"
       - name: Report and cost (repair)
         if: always()

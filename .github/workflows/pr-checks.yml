@@ -26,6 +26,15 @@ jobs:
       - name: Pipeline scripts parse (node --check)
         run: for f in scripts/*.mjs .github/scripts/*.mjs; do if [ -f "$f" ]; then node --check "$f"; fi; done
 
+      - name: Agent records are well-formed (docs/pipeline/agent-records.md)
+        run: |
+          FILES=$(git diff --name-only --diff-filter=AM "origin/${{ github.base_ref }}...HEAD" -- '.agent/' | grep -v '/diagnostics/' || true)
+          [ -n "$FILES" ] || { echo "No agent records changed"; exit 0; }
+          # The base branch's validator, so a story branch can't loosen it (falls back to this branch's copy until it exists).
+          git show "origin/${{ github.base_ref }}:scripts/agent-records.mjs" > "$RUNNER_TEMP/agent-records.mjs" 2>/dev/null \
+            || cp scripts/agent-records.mjs "$RUNNER_TEMP/agent-records.mjs"
+          node "$RUNNER_TEMP/agent-records.mjs" validate $FILES
+
       - name: Metadata, NPSP and .github guards (QG-07, DM-03, PIPE-04, PIPE-08)
         run: node scripts/check-metadata.mjs "origin/${{ github.base_ref }}" "${{ github.head_ref }}"
 
