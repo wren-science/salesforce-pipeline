@@ -152,7 +152,8 @@ jobs:
             `agent` (already logged in; the only org you may touch). Build the story in force-app until every test passes:
               sf project deploy start --source-dir force-app --target-org agent --wait 30
               node scripts/personas.mjs --org agent --mode scratch
-              sf apex run test --target-org agent --test-level RunLocalTests --wait 30
+              sf apex run test --target-org agent --class-names <each test class in force-app> --wait 30
+                (never RunLocalTests: TAF and Nebula Logger are unlocked packages, so their tests count as local)
               cd tests/e2e && npx playwright test        (SF_BASE_URL is already set; personas.mjs exports passwords via a file)
             Never weaken a test. Then update .agent/${{ github.event.issue.number }}/handover.json (stage "review-required"),
             commit, `git push -u origin ${{ steps.branch.outputs.name }}`, and open a draft PR into integration with

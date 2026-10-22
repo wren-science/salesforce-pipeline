@@ -73,7 +73,8 @@ async function completeFirstLogin(page: import('@playwright/test').Page, key: st
   if (await page.locator('#answer').count()) await page.locator('#answer').fill(randomBytes(9).toString('base64url'));
   await page.locator('#password-button').click();
   await page.waitForURL((u) => !/ChangePassword/.test(u.toString()), { timeout: 60_000 });
-  if (!/\/lightning\//.test(page.url())) await page.goto('/lightning/page/home');
+  // Global setup's browser context has no baseURL: resolve against the org the sign-in landed on.
+  if (!/\/lightning\//.test(page.url())) await page.goto(new URL('/lightning/page/home', page.url()).toString());
 }
 
 // Persona passwords written by scripts/personas.mjs (git-ignored, 0600). Used only if the environment lacks them.
