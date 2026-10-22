@@ -1,9 +1,9 @@
 {
   "version": 2,
   "issue": 4,
-  "stage": "blocked",
+  "stage": "review-required",
   "role": "repair",
-  "summary": "Program catalogue built declaratively (DES-02): Program__c (Public Read/Write internal OWD, Private external) with Program_Code__c (Text(20), required, unique, case-insensitive, External Id), restricted Study_Level__c and Faculty__c picklists, Active__c (default true); Active_Programs and All list views; layouts; Programs tab in the Recruitment app; Persona_Recruitment_Officer grants Program Read/Create/Edit (no Delete), FLS and tab visibility. ADR 0002 records the decision. Repair 3 answered the reviews: denial tests now assert the exact exception and message, AC2 asserts the whole duplicate message, AC4 is named for what it proves, ADR 0002 states no sharing recalculation is needed. 20 Apex and 5 #4 Playwright tests pass in the agent sandbox. Blocked on arch-1: QA clean-up of E2E Programs (PIPE-15) needs a person.",
+  "summary": "Program catalogue built declaratively (DES-02): Program__c (Public Read/Write internal OWD, Private external) with Program_Code__c (Text(20), required, unique, case-insensitive, External Id), restricted Study_Level__c and Faculty__c picklists, Active__c (default true); Active_Programs and All list views; layouts; Programs tab in the Recruitment app; Persona_Recruitment_Officer grants Program Read/Create/Edit (no Delete), FLS and tab visibility. ADR 0002 records the decision. Rebased onto integration after #20: the permission set keeps every grant from both sides. Program__c is registered in config/test-data.json by its E2E- codes for the pipeline clean-up (PIPE-15, arch-1). All 24 repo Apex tests and 10 Playwright tests pass together in the agent sandbox.",
   "standards": ["DES-01", "DES-02", "DES-09", "DES-11", "DM-01", "DM-02", "DM-03", "DM-04", "DM-06", "DM-07", "DM-08", "SHR-01", "SHR-02", "SHR-07", "SHR-08", "SHR-15", "APX-21", "APX-22", "TST-01", "TST-03", "TST-16", "TST-17", "PIPE-06", "PIPE-11", "PIPE-12", "PIPE-14", "PIPE-15", "RET-01"],
   "adrs": ["docs/adr/0002-program-custom-object.md"],
   "tests": {
@@ -71,10 +71,6 @@
   ],
   "openQuestions": [
     {
-      "question": "PIPE-15 (arch-1, sec-2): QA needs the harness clean-up of E2E-* Programs (plan decision 6b) on integration before merge, or a person accepts a recorded exception. A story cannot add it.",
-      "owner": "pipeline"
-    },
-    {
       "question": "RET-01 (arch-2): a follow-up issue for the Program__c Data_Retention_Policy__mdt row (Retain Indefinitely, ADR 0002 / #4) should be opened and cited in ADR 0002's Lifecycle bullet. The repair agent cannot open issues.",
       "owner": "person"
     }
@@ -82,8 +78,8 @@
   "findings": [
     {
       "id": "arch-1",
-      "status": "disputed",
-      "note": "Cannot be fixed inside the story: clean-up belongs in integration's harness and the persona must not get Delete (AC3, SHR-08). Spec comment corrected to say clean-up is not built yet; escalated with human:approval-required."
+      "status": "fixed",
+      "note": "#40 put the pipeline-owned clean-up on integration. Program__c is registered in config/test-data.json (Program_Code__c LIKE 'E2E-%'), so it is removed after every QA and sandbox run; the persona still has no Delete (AC3, SHR-08). Spec comment updated."
     },
     {
       "id": "arch-2",
@@ -103,7 +99,7 @@
     {
       "id": "sec-2",
       "status": "fixed",
-      "note": "Recorded as an open question with owner pipeline; Delete not granted to the persona."
+      "note": "E2E Programs are now removed by the pipeline clean-up (config/test-data.json, #40); Delete not granted to the persona."
     },
     {
       "id": "tests-1",
@@ -126,5 +122,5 @@
       "note": "Handover is version 2 with structured testChanges, owned openQuestions and findings; validated."
     }
   ],
-  "next": "person: decide arch-1 (PIPE-15 QA clean-up), then reviewers"
+  "next": "reviewers; a person opens the RET-01 follow-up issue (arch-2)"
 }

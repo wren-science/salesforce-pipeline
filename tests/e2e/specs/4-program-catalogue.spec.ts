@@ -4,8 +4,8 @@ import type { Locator, Page } from '@playwright/test';
 // Issue #4: Program catalogue. Runs as the Recruitment Officer, the persona that maintains Programs
 // through its Recruitment_Officer permission set group (DES-01, TST-17).
 // Data is synthetic and unique per run (PIPE-14): codes are E2E-<runId>-<n>, within Program Code's 20 chars.
-// The persona has no Delete, so these Programs stay in the org. The harness clean-up of E2E-* Programs
-// (PIPE-15, plan decision 6b) is not built yet; until it is on integration, every run adds up to 7 rows.
+// The persona has no Delete (AC3), so the pipeline removes these Programs after every run by their E2E- codes,
+// as its own identity (config/test-data.json, scripts/cleanup-test-data.mjs, PIPE-15).
 const runId = Date.now().toString(36).toUpperCase();
 const code = (n: number) => `E2E-${runId}-${n}`;
 const name = (n: number) => `E2E Program ${runId} ${n}`;

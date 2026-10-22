@@ -12,6 +12,10 @@
     {
       "sobject": "Account",
       "where": "Name LIKE 'E2E-%' OR Name LIKE 'PW20-%'"
+    },
+    {
+      "sobject": "Program__c",
+      "where": "Program_Code__c LIKE 'E2E-%'"
     }
   ]
 }
