@@ -36,6 +36,20 @@ async function setActive(scope: Locator, active: boolean) {
   else await box.uncheck();
 }
 
+// The list grid renders rows lazily as it scrolls; scroll until every row the list reports is in the DOM,
+// so presence and absence checks see the whole list, not only its first screen.
+async function loadAllRows(page: Page, list: string) {
+  const status = page.getByRole('status', { name: list });
+  const rows = page.getByRole('grid', { name: list }).getByRole('rowheader');
+  await expect(status).toContainText(/\d+\+? items?/);
+  await expect(async () => {
+    if ((await rows.count()) > 0) await rows.last().scrollIntoViewIfNeeded();
+    const [, total, more] = (await status.textContent())?.match(/(\d+)(\+?) items?/) ?? [];
+    expect(more).toBe('');
+    await expect(rows).toHaveCount(Number(total), { timeout: 2_000 });
+  }).toPass({ timeout: 60_000 });
+}
+
 async function fillNewProgram(page: Page, p: Program, programCode = code(p.n)) {
   await page.goto('/lightning/o/Program__c/new');
   const dialog = page.getByRole('dialog');
@@ -112,6 +126,7 @@ test.describe('#4 Program catalogue: Recruitment Officer', () => {
 
     await page.goto('/lightning/o/Program__c/list?filterName=Active_Programs');
     await expect(page.getByText('Active Programs').first()).toBeVisible();
+    await loadAllRows(page, 'Active Programs');
     await expect(page.getByRole('link', { name: name(6), exact: true })).toBeVisible();
     await expect(page.getByRole('link', { name: name(7), exact: true })).toHaveCount(0);
   });
