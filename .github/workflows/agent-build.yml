@@ -91,6 +91,8 @@ jobs:
           echo "name=$BRANCH" >> "$GITHUB_OUTPUT"
 
       - uses: ./.github/actions/setup-sf
+        with:
+          merge-driver: "true"
 
       - name: Playwright browsers for the agents
         working-directory: tests/e2e

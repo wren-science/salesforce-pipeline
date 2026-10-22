@@ -26,6 +26,13 @@ jobs:
       - name: Pipeline scripts parse (node --check)
         run: for f in scripts/*.mjs .github/scripts/*.mjs; do if [ -f "$f" ]; then node --check "$f"; fi; done
 
+      - name: No unresolved merge conflicts
+        run: |
+          if git grep -nE '^(<<<<<<<|>>>>>>>)( |$)|^=======$' -- force-app tests config scripts .agent; then
+            echo "::error::Conflict markers left in the sources (above). Resolve them before this PR can merge."
+            exit 1
+          fi
+
       - name: Agent records are well-formed (docs/pipeline/agent-records.md)
         run: |
           FILES=$(git diff --name-only --diff-filter=AM "origin/${{ github.base_ref }}...HEAD" -- '.agent/' | grep -v '/diagnostics/' || true)

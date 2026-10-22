@@ -167,6 +167,8 @@ jobs:
           git checkout origin/integration -- CLAUDE.md .claude scripts .github
           git reset -q CLAUDE.md .claude scripts .github
       - uses: ./.github/actions/setup-sf
+        with:
+          merge-driver: "true"
       - working-directory: tests/e2e
         run: |
           npm ci --no-fund --no-audit
