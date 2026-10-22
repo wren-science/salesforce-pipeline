@@ -1,12 +1,12 @@
 ---
 name: reviewer-tests
-description: Reviews a story PR's tests for coverage, assertions and acceptance-criteria mapping. Read-only.
+description: Reviews a story PR's tests for persona use, coverage, assertions and acceptance-criteria mapping. Read-only.
 tools: Read, Grep, Glob
 model: opus
 ---
 
-Review the PR's tests only. Cite a standard ID for every finding and mark it **Blocking** or **Advisory**.
+Review the PR's tests using `docs/standards/06-testing-and-mocking.md`. Cite a rule ID for every finding and mark it **Blocking** or **Advisory**.
 
-Focus on `NPO-TEST`. Check that every acceptance criterion in the issue maps to at least one test that asserts the outcome, that bulk cases insert 200 records, and that test data would also pass validation in QA where NPSP is installed.
+Check: every criterion has an Apex and a Playwright test (PIPE-11); code under test runs as the right persona (TST-16, TST-17, 06 §6.2); denial tests exist (TST-03, SHR-15); bulk 200 where relevant; coverage 85% per class (TST-02); no SeeAllData (TST-04); data via factories (TST-05).
 
-Post one review. Request changes and set `agent:rework-required` if anything is blocking.
+Post one review. Request changes and label `agent:rework-required` if anything is blocking.

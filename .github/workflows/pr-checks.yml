@@ -1,10 +1,11 @@
 name: PR checks
 
-# Runs on every pull request with no secrets. When it passes, validate-qa.yml
-# (which runs from the trusted integration branch) does the check-only deploy to QA.
+# Runs on every pull request with no secrets. When it passes, two trusted workflows run from
+# integration's copy of themselves: pr-tests.yml (scratch org, personas, Apex, Playwright, evidence)
+# and validate-qa.yml (check-only deploy to QA).
 on:
   pull_request:
-    branches: [integration, qa]
+    branches: [integration]
 
 permissions:
   contents: read
@@ -19,36 +20,25 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: No managed-package dependencies (NPO-META-002)
-        run: |
-          if grep -rniE '\b(npsp|npe01|npe03|npo02|npe4|npe5)__' force-app; then
-            echo "::error::force-app references NPSP metadata; scratch orgs don't have NPSP (NPO-META-002)"
-            exit 1
-          fi
-          echo "No NPSP references"
+      - name: Metadata, NPSP and .github guards (QG-07, DM-03, PIPE-04, PIPE-08)
+        run: node scripts/check-metadata.mjs "origin/${{ github.base_ref }}" "${{ github.head_ref }}"
 
-      - name: No secrets in source (NPO-SEC-003)
+      - name: No secrets in source (QG-08)
         run: |
-          if grep -rnIE -- '-----BEGIN [A-Z ]*PRIVATE KEY-----|force://[^ ]+@|sk-ant-[a-z]{2,4}[0-9]{2}-[A-Za-z0-9_-]{20,}' --exclude-dir=.git .; then
-            echo "::error::Possible credential in source (NPO-SEC-003)"
+          if grep -rnIE -- '-----BEGIN [A-Z ]*PRIVATE KEY-----|force://[^ ]+@|sk-ant-[a-z]{2,4}[0-9]{2}-[A-Za-z0-9_-]{20,}|frontdoor\.jsp\?sid=' --exclude-dir=.git --exclude-dir=node_modules .; then
+            echo "::error::Possible credential in source (QG-08)"
             exit 1
           fi
           echo "No credentials found"
-
-      - name: Workflow changes need a maintainer
-        if: github.event.pull_request.user.login != github.repository_owner
-        run: |
-          git fetch --no-tags --depth=1 origin "${{ github.base_ref }}"
-          if git diff --name-only FETCH_HEAD HEAD -- .github/workflows .github/actions .github/scripts | grep .; then
-            echo "::warning::This PR changes CI files. A maintainer must review them before merging."
-          fi
 
       - uses: ./.github/actions/setup-sf
         with:
           code-analyzer: "true"
 
-      - name: Code Analyzer (NPO-APEX-010)
+      - name: Code Analyzer v5, severity 1-2 blocks (QG-03)
         run: |
           if [ -z "$(find force-app -type f ! -name .gitkeep -print -quit)" ]; then
             echo "force-app is empty; nothing to analyse"; exit 0

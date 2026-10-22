@@ -5,3 +5,5 @@ developmentBranch: integration
 autoCleanTypes:
   - destructivechanges
   - flowPositions
+availableTargetBranches:
+  - integration

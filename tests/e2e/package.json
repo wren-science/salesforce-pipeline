@@ -1,0 +1,12 @@
+{
+  "name": "salesforce-pipeline-e2e",
+  "private": true,
+  "description": "Playwright acceptance and regression tests. Every test runs as a persona user from config/personas.json.",
+  "scripts": {
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.13.0",
+    "@playwright/test": "1.64.0"
+  }
+}

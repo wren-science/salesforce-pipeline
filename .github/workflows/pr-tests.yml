@@ -1,0 +1,231 @@
+name: PR tests
+
+# Every PR gets its own scratch org, its persona users, and its Apex and Playwright tests, run as personas
+# (TST-16), with the evidence posted back to the PR as the status "tests/scratch".
+#
+# Why four jobs on four runners (PIPE-09): the Dev Hub login (a production login) must never share a runner
+# with PR code. "provision" and "cleanup" hold the Dev Hub login and run no PR code. "work" runs the PR's
+# code and tests but only ever holds the throwaway scratch org's login, handed over encrypted.
+# "report" runs trusted code only and is the one job that can write statuses and comments.
+on:
+  workflow_run:
+    workflows: [PR checks]
+    types: [completed]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-tests-${{ github.event.workflow_run.head_sha }}
+  cancel-in-progress: true
+
+env:
+  HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+
+jobs:
+  provision:
+    name: Create scratch org
+    if: >
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: ubuntu-latest
+    environment: devhub
+    permissions:
+      contents: read
+      statuses: write
+    outputs:
+      username: ${{ steps.create.outputs.username }}
+    steps:
+      - name: Mark tests/scratch pending
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "repos/${{ github.repository }}/statuses/$HEAD_SHA" -f state=pending -f context=tests/scratch \
+            -f description="Creating scratch org" -f target_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" >/dev/null
+
+      - name: Check out integration (trusted)
+        uses: actions/checkout@v4
+        with:
+          ref: integration
+
+      - uses: ./.github/actions/setup-sf
+
+      - name: Create scratch org from the Dev Hub
+        id: create
+        env:
+          SFDX_AUTH_URL_DEV_HUB: ${{ secrets.SFDX_AUTH_URL_DEV_HUB }}
+          SCRATCH_HANDOFF_KEY: ${{ secrets.SCRATCH_HANDOFF_KEY }}
+        run: |
+          umask 077
+          printf '%s' "$SFDX_AUTH_URL_DEV_HUB" > devhub.url
+          sf org login sfdx-url --sfdx-url-file devhub.url --alias devhub --set-default-dev-hub >/dev/null
+          rm -f devhub.url
+          sf org create scratch --target-dev-hub devhub --definition-file config/project-scratch-def.json \
+            --alias pr --duration-days 1 --wait 30 --json > create.json
+          USERNAME=$(node -e 'const s=require("fs").readFileSync("create.json","utf8");console.log(JSON.parse(s.slice(s.indexOf("{"))).result.username)')
+          echo "username=$USERNAME" >> "$GITHUB_OUTPUT"
+          node scripts/auth-url.mjs "$USERNAME" scratch.url
+          openssl enc -aes-256-cbc -pbkdf2 -salt -pass env:SCRATCH_HANDOFF_KEY -in scratch.url -out scratch.enc
+          rm -f scratch.url create.json
+          sf org logout --target-org devhub --no-prompt >/dev/null
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: scratch-handoff
+          path: scratch.enc
+          retention-days: 1
+
+  work:
+    name: Deploy and test as personas
+    needs: provision
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      apex: ${{ steps.apex.outcome }}
+      playwright: ${{ steps.playwright.outcome }}
+      deploy: ${{ steps.deploy.outcome }}
+    steps:
+      - name: Check out integration (trusted scripts and config)
+        uses: actions/checkout@v4
+        with:
+          ref: integration
+          fetch-depth: 0
+
+      - name: Take the PR's source and tests
+        run: |
+          git fetch --no-tags origin "$HEAD_SHA"
+          rm -rf force-app tests/e2e/specs
+          git checkout "$HEAD_SHA" -- force-app tests/e2e/specs config/personas.json
+          git status --short | head -50
+
+      - uses: ./.github/actions/setup-sf
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: scratch-handoff
+
+      - name: Log in to the scratch org
+        env:
+          SCRATCH_HANDOFF_KEY: ${{ secrets.SCRATCH_HANDOFF_KEY }}
+        run: |
+          umask 077
+          openssl enc -d -aes-256-cbc -pbkdf2 -pass env:SCRATCH_HANDOFF_KEY -in scratch.enc -out scratch.url
+          sf org login sfdx-url --sfdx-url-file scratch.url --alias pr --set-default >/dev/null
+          rm -f scratch.url scratch.enc
+
+      - name: Deploy the PR to its scratch org
+        id: deploy
+        run: sf project deploy start --source-dir force-app --target-org pr --wait 30
+
+      - name: Create persona users (config/personas.json)
+        run: node scripts/personas.mjs --org pr --mode scratch
+
+      - name: Apex tests (all local tests, as personas)
+        id: apex
+        continue-on-error: true
+        run: |
+          mkdir -p results/apex
+          sf apex run test --target-org pr --test-level RunLocalTests --code-coverage --result-format junit --output-dir results/apex --wait 30
+
+      - name: Playwright acceptance tests, as personas, full evidence
+        id: playwright
+        continue-on-error: true
+        working-directory: tests/e2e
+        env:
+          EVIDENCE: full
+        run: |
+          npm ci --no-fund --no-audit
+          npx playwright install --with-deps chromium
+          export SF_BASE_URL=$(sf org display --target-org pr --json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s.slice(s.indexOf("{"))).result.instanceUrl.replace(".my.salesforce.com",".lightning.force.com")))')
+          npx playwright test
+
+      - name: Log out of the scratch org
+        if: always()
+        run: sf org logout --target-org pr --no-prompt >/dev/null 2>&1 || true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: evidence-scratch
+          path: |
+            results/apex
+            tests/e2e/results
+            tests/e2e/playwright-report
+            tests/e2e/test-results
+          if-no-files-found: ignore
+
+  report:
+    name: Post evidence
+    needs: [provision, work]
+    if: always() && needs.provision.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      statuses: write
+      pull-requests: write
+      actions: write
+    steps:
+      - name: Check out integration (trusted)
+        uses: actions/checkout@v4
+        with:
+          ref: integration
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: evidence-scratch
+          path: evidence
+        continue-on-error: true
+
+      - name: Evidence comment and tests/scratch status
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set +e
+          node scripts/evidence.mjs --playwright evidence/tests/e2e/results/results.json --apex evidence/results/apex \
+            --title "Evidence: scratch org (tests/scratch)" --run-url "$RUN_URL" > evidence.md
+          OK=$?
+          [ "${{ needs.work.outputs.deploy }}" = "success" ] || OK=1
+          cat evidence.md >> "$GITHUB_STEP_SUMMARY"
+          PR=$(gh api "repos/${{ github.repository }}/commits/$HEAD_SHA/pulls" --jq '.[0].number')
+          if [ -n "$PR" ]; then
+            BODY="<!-- evidence:tests/scratch -->"$'\n'"$(cat evidence.md)"
+            CID=$(gh api "repos/${{ github.repository }}/issues/$PR/comments" --jq '[.[] | select(.body | startswith("<!-- evidence:tests/scratch -->"))][0].id')
+            if [ -n "$CID" ] && [ "$CID" != "null" ]; then
+              gh api -X PATCH "repos/${{ github.repository }}/issues/comments/$CID" -f body="$BODY" >/dev/null
+            else
+              gh api "repos/${{ github.repository }}/issues/$PR/comments" -f body="$BODY" >/dev/null
+            fi
+          fi
+          if [ $OK -eq 0 ]; then S=success; D="All tests passed as personas"; else S=failure; D="Deploy or tests failed in the scratch org"; fi
+          gh api "repos/${{ github.repository }}/statuses/$HEAD_SHA" -f state=$S -f context=tests/scratch -f description="$D" -f target_url="$RUN_URL" >/dev/null
+          for id in $(gh api "repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts" --jq '.artifacts[] | select(.name=="scratch-handoff") | .id'); do
+            gh api -X DELETE "repos/${{ github.repository }}/actions/artifacts/$id" >/dev/null
+          done
+          exit $OK
+
+  cleanup:
+    name: Delete scratch org
+    needs: [provision, work]
+    if: always() && needs.provision.result == 'success'
+    runs-on: ubuntu-latest
+    environment: devhub
+    steps:
+      - name: Check out integration (trusted)
+        uses: actions/checkout@v4
+        with:
+          ref: integration
+      - uses: ./.github/actions/setup-sf
+      - name: Delete the scratch org through the Dev Hub
+        env:
+          SFDX_AUTH_URL_DEV_HUB: ${{ secrets.SFDX_AUTH_URL_DEV_HUB }}
+          SCRATCH_USERNAME: ${{ needs.provision.outputs.username }}
+        run: |
+          umask 077
+          printf '%s' "$SFDX_AUTH_URL_DEV_HUB" > devhub.url
+          sf org login sfdx-url --sfdx-url-file devhub.url --alias devhub >/dev/null
+          rm -f devhub.url
+          sf data delete record --target-org devhub --sobject ActiveScratchOrg --where "SignupUsername='$SCRATCH_USERNAME'" || echo "Scratch org already gone; it expires within a day anyway"
+          sf org logout --target-org devhub --no-prompt >/dev/null

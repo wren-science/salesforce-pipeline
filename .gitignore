@@ -50,3 +50,10 @@ $RECYCLE.BIN/
 # sfdx-hardis
 hardis-report/
 config/user/
+
+# Playwright
+tests/e2e/node_modules/
+tests/e2e/.auth/
+tests/e2e/test-results/
+tests/e2e/playwright-report/
+tests/e2e/results/

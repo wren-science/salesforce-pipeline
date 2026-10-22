@@ -28,7 +28,7 @@ Written by every agent before it finishes, committed on the story's branch.
   "stage": "review-required",
   "role": "developer",
   "summary": "Added Lead matching and duplicate rules on email and company.",
-  "standards": ["NPO-SALES-001", "NPO-FLOW-007", "NPO-TEST-002"],
+  "standards": ["DES-01", "DES-02", "TST-03", "TST-16"],
   "acceptanceCriteria": [
     { "id": "AC1", "status": "met", "evidence": "LeadDuplicateRuleTest.blocksExactEmailMatch" },
     { "id": "AC2", "status": "met", "evidence": "LeadDuplicateRuleTest.allowsDifferentCompany" }
