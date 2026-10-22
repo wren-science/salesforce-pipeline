@@ -33,10 +33,6 @@
                 <field>LeadSource</field>
             </layoutItems>
             <layoutItems>
-                <behavior>Edit</behavior>
-                <field>Lead_Source_Detail__c</field>
-            </layoutItems>
-            <layoutItems>
                 <behavior>Readonly</behavior>
                 <field>OwnerId</field>
             </layoutItems>

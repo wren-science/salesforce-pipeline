@@ -59,14 +59,26 @@ export function runApex(code: string) {
  * Apex runs with the admin's FLS (and refuses SYSTEM_MODE). Values must not contain single quotes.
  */
 export function createRecordAs(personaKey: string, sobject: string, values: Record<string, string | number | boolean>): string {
-  const aliasFile = join(__dirname, '..', '.auth', `${personaKey}.alias`);
-  if (!existsSync(aliasFile)) throw new Error(`No CLI login for persona ${personaKey}: expected .auth/${personaKey}.alias`);
   const pairs = Object.entries(values).map(([k, v]) => {
     if (String(v).includes("'")) throw new Error(`Value for ${k} contains a single quote`);
     return `${k}='${v}'`;
   });
-  const alias = readFileSync(aliasFile, 'utf8').trim();
-  return sfAs<{ id: string }>(['--target-org', alias], 'data', 'create', 'record', '--sobject', sobject, '--values', pairs.join(' ')).id;
+  return sfAs<{ id: string }>(personaOrg(personaKey), 'data', 'create', 'record', '--sobject', sobject, '--values', pairs.join(' ')).id;
+}
+
+/**
+ * Runs a SOSL search as the persona, with the persona's sharing and FLS, and returns the Ids it found. Use it to
+ * prove a record has reached the search index before asserting that a UI search leaves it out.
+ */
+export function searchIdsAs(personaKey: string, sosl: string): string[] {
+  const r = sfAs<{ searchRecords?: { Id: string }[] }>(personaOrg(personaKey), 'data', 'search', '--query', sosl);
+  return (r.searchRecords ?? []).map((rec) => rec.Id);
+}
+
+function personaOrg(personaKey: string): string[] {
+  const aliasFile = join(__dirname, '..', '.auth', `${personaKey}.alias`);
+  if (!existsSync(aliasFile)) throw new Error(`No CLI login for persona ${personaKey}: expected .auth/${personaKey}.alias`);
+  return ['--target-org', readFileSync(aliasFile, 'utf8').trim()];
 }
 
 /** The persona's test user, created by scripts/personas.mjs as `<key>.<orgId>@pipeline...`. */

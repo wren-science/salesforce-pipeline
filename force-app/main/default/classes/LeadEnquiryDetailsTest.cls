@@ -8,11 +8,12 @@
  */
 @IsTest
 private class LeadEnquiryDetailsTest {
-    private static final List<String> ENQUIRY_FIELDS = new List<String>{
-        'Study_Level__c',
-        'Citizenship_Status__c',
-        'Preferred_Intake__c',
-        'Program_of_Interest__c'
+    // Field tokens, so a renamed or deleted field fails at compile time (APX-57).
+    private static final List<Schema.SObjectField> ENQUIRY_FIELDS = new List<Schema.SObjectField>{
+        Lead.Study_Level__c,
+        Lead.Citizenship_Status__c,
+        Lead.Preferred_Intake__c,
+        Lead.Program_of_Interest__c
     };
 
     @TestSetup
@@ -214,20 +215,20 @@ private class LeadEnquiryDetailsTest {
         Map<String, Boolean> updateableByField = new Map<String, Boolean>();
         System.runAs(TestPersonaFactory.get(TestPersonas.RECRUITMENT_OFFICER)) {
             // Field describes are evaluated for the current user, so read them inside runAs.
-            Map<String, Schema.SObjectField> fields = Lead.SObjectType.getDescribe(SObjectDescribeOptions.DEFERRED).fields.getMap();
-            for (String f : ENQUIRY_FIELDS) {
-                Schema.DescribeFieldResult d = fields.get(f).getDescribe();
-                accessibleByField.put(f, d.isAccessible());
-                updateableByField.put(f, d.isUpdateable());
+            for (Schema.SObjectField token : ENQUIRY_FIELDS) {
+                Schema.DescribeFieldResult d = token.getDescribe();
+                accessibleByField.put(d.getName(), d.isAccessible());
+                updateableByField.put(d.getName(), d.isUpdateable());
             }
         }
-        for (String f : ENQUIRY_FIELDS) {
+        Assert.areEqual(ENQUIRY_FIELDS.size(), accessibleByField.size(), 'Every enquiry field was described');
+        for (String f : accessibleByField.keySet()) {
             Assert.isTrue(accessibleByField.get(f), 'Persona can read ' + f);
             Assert.isTrue(updateableByField.get(f), 'Persona can edit ' + f);
         }
 
         List<String> qualified = new List<String>();
-        for (String f : ENQUIRY_FIELDS) {
+        for (String f : accessibleByField.keySet()) {
             qualified.add('Lead.' + f);
         }
         List<FieldPermissions> fromPermissionSet = [

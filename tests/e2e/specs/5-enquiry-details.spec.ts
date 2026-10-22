@@ -1,6 +1,6 @@
 import { test, expect, AppNav } from '../support/evidence';
 import type { Locator, Page } from '@playwright/test';
-import { createRecordAs } from '../support/org';
+import { createRecordAs, searchIdsAs } from '../support/org';
 
 // Issue #5: enquiry details on Lead. Runs as the Recruitment Officer, the persona that captures enquiries and
 // holds the four fields through its Recruitment_Officer permission set group (DES-01, TST-17).
@@ -90,13 +90,14 @@ async function openLeadInRecruitmentApp(page: Page, id: string) {
 test.describe('#5 Enquiry details on Lead: Recruitment Officer', () => {
   let persona: string;
   let activeProgramId: string;
+  let inactiveProgramId: string;
 
   test.beforeAll(async ({}, testInfo) => {
     test.skip(testInfo.project.name !== 'recruitment-officer', 'Enquiries are captured by the Recruitment Officer');
     persona = testInfo.project.name;
     const program = { Study_Level__c: 'Postgraduate_Coursework', Faculty__c: 'Health' };
     activeProgramId = createRecordAs(persona, 'Program__c', { ...program, Name: activeProgram, Program_Code__c: `E2E-${runId}-A`, Active__c: true });
-    createRecordAs(persona, 'Program__c', { ...program, Name: inactiveProgram, Program_Code__c: `E2E-${runId}-I`, Active__c: false });
+    inactiveProgramId = createRecordAs(persona, 'Program__c', { ...program, Name: inactiveProgram, Program_Code__c: `E2E-${runId}-I`, Active__c: false });
   });
 
   test('#5 AC1: Recruitment Officer records study level, citizenship, preferred intake and program on a new Lead', async ({ app, page }) => {
@@ -115,6 +116,12 @@ test.describe('#5 Enquiry details on Lead: Recruitment Officer', () => {
   });
 
   test('#5 AC2: Program of Interest offers active programs and not inactive ones', async ({ app, page }) => {
+    // First prove the inactive Program is in the search index and visible to the persona, so its absence from
+    // the lookup below comes from the active-only filter, not from indexing lag (TST-03).
+    await expect(() => {
+      expect(searchIdsAs(persona, `FIND {"${inactiveProgram}"} IN NAME FIELDS RETURNING Program__c(Id)`)).toContain(inactiveProgramId);
+    }).toPass({ timeout: 60_000, intervals: [3_000] });
+
     const dialog = await openNewLeadInRecruitmentApp(app, page);
     // Search for what both seeded Programs share: only the active one may be offered.
     await searchPrograms(dialog, programPrefix, activeProgram);

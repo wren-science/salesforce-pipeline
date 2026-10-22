@@ -1,10 +1,10 @@
 {
   "version": 2,
   "issue": 5,
-  "stage": "review-required",
-  "role": "developer",
-  "summary": "Enquiry details on Lead built declaratively (DES-02): restricted picklists Study_Level__c (same codes and labels as Program__c), Citizenship_Status__c (Confidential, PII) and Preferred_Intake__c (six agreed intakes), plus a Program_of_Interest__c lookup to Program__c with an optional active-only lookup filter (plan decision 6). Read/Edit FLS is granted only in Persona_Recruitment_Officer (inside PSG Recruitment_Officer). AC3 uses a new Dynamic Forms page, Lead_Recruitment_Record_Page, activated as the Recruitment app's Lead default (plan decision 4); the New Lead form takes the enquiry fields from it too. Program__c.enableSearch is now true (decision 3, ADR 0002 amendment). One deviation needs a person: Persona Base had no Lead page layout at all, so New Lead failed for every persona. It now has Lead-Persona Lead Layout, which holds standard fields only, no enquiry fields. Apex 39/39 and Playwright 14/14 pass in the sandbox.",
-  "standards": ["DES-01", "DES-02", "DES-04", "DES-05", "DES-09", "DES-11", "DM-02", "DM-03", "DM-05", "DM-06", "DM-08", "DM-12", "SHR-03", "SHR-15", "APX-21", "APX-22", "APX-58", "TST-01", "TST-03", "TST-05", "TST-16", "TST-17", "TST-18", "PIPE-04", "PIPE-11", "PIPE-15"],
+  "stage": "blocked",
+  "role": "repair",
+  "summary": "Repair 1 fixed arch-1 (field tokens, APX-57), arch-2 (Lead_Source_Detail__c off the Persona Base layout), arch-3 (FlexiPage description) and tests-1 (AC2 first proves via persona SOSL that the inactive Program is indexed). Apex 39/39 and Playwright 14/14 pass in the sandbox. Blocked on sec-1: Lead internal OWD is Public Read/Write/Transfer (external Private), so Confidential Citizenship_Status__c breaches SHR-01. Reclassifying the field, an OWD change ADR (SHR-02) or a MUST exception is a person's decision.",
+  "standards": ["DES-01", "DES-02", "DES-04", "DES-05", "DES-09", "DES-11", "DM-02", "DM-03", "DM-05", "DM-06", "DM-08", "DM-12", "SHR-01", "SHR-02", "SHR-03", "SHR-15", "APX-21", "APX-22", "APX-57", "APX-58", "TST-01", "TST-03", "TST-05", "TST-16", "TST-17", "TST-18", "PIPE-04", "PIPE-11", "PIPE-15"],
   "adrs": ["docs/adr/0002-program-custom-object.md"],
   "tests": {
     "apex": ["LeadEnquiryDetailsTest"],
@@ -52,14 +52,30 @@
       "test": "tests/e2e/specs/5-enquiry-details.spec.ts AC1, AC2",
       "change": "New Lead is opened from the Recruitment app (openNewLeadInRecruitmentApp), as AC3/AC4 already did. Lookup results are matched by text inside the 'Search Results' group (programResults), and the results list is closed before Cancel.",
       "whyNotWeaker": "Lookup record options have no accessible name, so the old name regex matched only the 'Show more results for …' option. That option clicked into Advanced Search, and AC2's inactive-program check passed without testing anything. The new locator finds the active Program as a real result and checks the inactive one by text. Assertions are unchanged."
+    },
+    {
+      "test": "LeadEnquiryDetailsTest.shouldGrantEnquiryFieldsThroughPermissionSetNotProfile",
+      "change": "ENQUIRY_FIELDS is a list of Lead field tokens described inside runAs, not string names resolved through the field map (arch-1, APX-57); it also asserts all four fields were described.",
+      "whyNotWeaker": "Same FLS and FieldPermissions assertions on the same four fields; a renamed field now fails at compile time instead of with a null pointer."
+    },
+    {
+      "test": "tests/e2e/specs/5-enquiry-details.spec.ts AC2",
+      "change": "Before checking the lookup, a persona SOSL search (searchIdsAs) must return the inactive Program's Id, retried for up to 60 s (tests-1).",
+      "whyNotWeaker": "Stronger: the absence assertion can no longer pass just because the inactive Program was not indexed yet."
     }
   ],
-  "findings": [],
+  "findings": [
+    { "id": "arch-1", "status": "fixed", "note": "ENQUIRY_FIELDS is now List<Schema.SObjectField> of Lead tokens, described inside runAs; the FieldPermissions names come from getDescribe().getName(). 39/39 Apex pass." },
+    { "id": "arch-2", "status": "fixed", "note": "Lead_Source_Detail__c removed from Lead-Persona Lead Layout; it stays on the Recruitment Dynamic Forms page. No test used it on the base form; Playwright 14/14 pass." },
+    { "id": "arch-3", "status": "fixed", "note": "FlexiPage description now says it is the Recruitment app default, not assigned by profile, and that Persona Base carries only a minimal standard-field Lead layout (accepted decision on #5)." },
+    { "id": "tests-1", "status": "fixed", "note": "AC2 first proves through a persona SOSL search (new searchIdsAs helper) that the inactive Program is indexed, then asserts the lookup's Search Results leave it out." },
+    { "id": "sec-1", "status": "disputed", "note": "Not fixed and not disputed in substance: the finding is right. Lead internal OWD is ReadWriteTransfer, external Private (.agent/5/diagnostics/repair-1-lead-owd.txt), so SHR-01 is breached. The fix is a person's decision (governance.md), so the story is blocked with human:approval-required." }
+  ],
   "openQuestions": [
     {
-      "question": "Deviation from plan decision 4 (DES-01, 06 §6.1): Persona Base had no Lead page layout assignment, so the New Lead form failed for every persona ('One or more profiles have no page layout assigned for the Lead Object'). This PR assigns a new Lead-Persona Lead Layout on Persona Base. It holds standard fields (Name, Company, Email, Phone, Status, Lead Source, Lead Source Detail, Owner) and none of the enquiry fields, which come only from the Recruitment app's Dynamic Forms page. Please accept this layout assignment, or choose another base Lead layout.",
+      "question": "SHR-01 (sec-1): Lead's internal OWD is Public Read/Write/Transfer, so the Confidential (PII) Citizenship_Status__c field breaches SHR-01. Choose one: reclassify the field (e.g. Internal) with a recorded acceptance; ask for an ADR to make Lead internal OWD Private with a recalculation plan and group sharing rules (SHR-02, SHR-03); or accept a MUST exception through an ADR.",
       "owner": "person"
     }
   ],
-  "next": "reviewers"
+  "next": "person"
 }

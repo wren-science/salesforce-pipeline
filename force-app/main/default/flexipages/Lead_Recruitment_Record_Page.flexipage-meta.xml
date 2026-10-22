@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <FlexiPage xmlns="http://soap.sforce.com/2006/04/metadata">
-    <description>Recruitment app Lead page (#5, plan decision 4): Dynamic Forms with an Enquiry details section. App default only; no profile layout assignment, org Lead pages and layouts untouched.</description>
+    <description>Recruitment app Lead default (#5 plan decision 4), Dynamic Forms with Enquiry details. Not assigned by profile; Persona Base carries only a minimal standard-field Lead layout (accepted decision on #5).</description>
     <flexiPageRegions>
         <itemInstances>
             <componentInstance>
