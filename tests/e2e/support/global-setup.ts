@@ -2,6 +2,7 @@ import { chromium, FullConfig } from '@playwright/test';
 import { existsSync, readFileSync, writeFileSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { randomBytes } from 'node:crypto';
+import { totp } from './totp';
 
 // For each persona, CI writes a one-time frontdoor URL to .auth/<persona>.url (sf org open --url-only,
 // run as that persona's user). We open it once, save the Lightning session as storage state, and delete
@@ -11,6 +12,40 @@ const scrub = (s: string) => s.replace(/https?:\/\/\S+/g, '<url removed>');
 
 // A persona user that has never signed in is sent to Salesforce's first-login password page.
 // Complete it with a random password that is never stored or logged: CI only ever signs in by frontdoor.
+// Salesforce MFA for persona test users in orgs that enforce it (QA). Each persona has an authenticator-app
+// (TOTP) secret in PERSONA_TOTP_<KEY>. If the org asks the persona to register MFA, we register an
+// authenticator app, compute the code ourselves, and save the new secret to .auth/<key>.totp so it can be
+// stored as a secret: in CI that is a one-off that fails loudly, because the secret must persist.
+async function handleIdentity(page: import('@playwright/test').Page, key: string, dir: string) {
+  const envKey = `PERSONA_TOTP_${key.toUpperCase().replace(/-/g, '_')}`;
+  for (let i = 0; i < 8 && /\/_ui\/identity\//.test(page.url()); i++) {
+    const path = new URL(page.url()).pathname;
+    if (/AddPasskeyUi/.test(path)) {
+      await page.getByText('Choose Another Verification Method').click();
+    } else if (/RegistrationStartUi/.test(path)) {
+      await page.getByText('One-Time Password App').click();
+      const next = page.getByRole('button', { name: /Continue|Next/ });
+      if (await next.count()) await next.first().click();
+    } else if (/AddTwoFactorUi/.test(path)) {
+      await page.getByText(/Can.t Scan the QR Code/i).click();
+      const text = await page.locator('body').innerText();
+      const secret = (text.match(/Key\s+([A-Z2-7 ]{16,})/) || [])[1]?.replace(/\s/g, '');
+      if (!secret) throw new Error('Could not read the authenticator key on the MFA registration page');
+      writeFileSync(join(dir, `${key}.totp`), secret, { mode: 0o600 });
+      await page.locator('input[type="text"], input[type="tel"], input[name*="otp" i], input[id*="code" i]').last().fill(totp(secret));
+      await page.locator('input[type="submit"], button[type="submit"], #save').first().click();
+      if (process.env.CI) console.log(`::warning::Registered a new MFA authenticator for persona ${key}; store .auth/${key}.totp as ${envKey}`);
+    } else {
+      const secret = process.env[envKey];
+      if (!secret) throw new Error(`MFA challenge at ${path} but ${envKey} is not set`);
+      await page.locator('input[type="text"], input[type="tel"], input[name*="otp" i], input[id*="code" i]').last().fill(totp(secret));
+      await page.locator('input[type="submit"], button[type="submit"], #save').first().click();
+    }
+    await page.waitForLoadState('domcontentloaded');
+    await page.waitForTimeout(2000);
+  }
+}
+
 // The provisioning step sets a random password (PERSONA_PASSWORD_<KEY>) for exactly this purpose.
 async function completeFirstLogin(page: import('@playwright/test').Page, key: string) {
   const current = process.env[`PERSONA_PASSWORD_${key.toUpperCase().replace(/-/g, '_')}`] ?? '';
@@ -52,8 +87,9 @@ export default async function globalSetup(config: FullConfig) {
       try {
         await page.goto(readFileSync(urlFile, 'utf8').trim(), { waitUntil: 'domcontentloaded', timeout: 90_000 });
         unlinkSync(urlFile);
-        await page.waitForURL(/\/lightning\/|ChangePassword/, { timeout: 90_000 });
+        await page.waitForURL(/\/lightning\/|ChangePassword|\/_ui\/identity\//, { timeout: 90_000 });
         if (/ChangePassword/.test(page.url())) await completeFirstLogin(page, project.name);
+        await handleIdentity(page, project.name, dir);
         await page.waitForURL(/\/lightning\//, { timeout: 90_000 });
         await page.locator('.slds-global-header, header[role="banner"]').first().waitFor({ timeout: 90_000 });
       } catch (e) {
