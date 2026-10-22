@@ -76,7 +76,8 @@ for (const pr of prs) {
     continue;
   }
   gh('pr', 'comment', String(n), '--repo', repo, '--body', body);
-  gh('workflow', 'run', 'deploy-qa.yml', '--repo', repo, '--ref', 'integration');
+  const story = pr.head.ref.match(/^feature\/(\d+)-/)?.[1];
+  gh('workflow', 'run', 'deploy-qa.yml', '--repo', repo, '--ref', 'integration', ...(story ? ['-f', `story=${story}`] : []));
   say('merged; deploy to QA started');
   delivered(pr);
   merged++;
@@ -92,9 +93,9 @@ function delivered(pr) {
   const hours = start ? (Date.now() - new Date(start)) / 36e5 : null;
   const ledger = JSON.parse(gh('api', '--paginate', '--slurp', `repos/${repo}/issues/${issue}/comments?per_page=100`)).flat()
     .find((c) => c.body?.startsWith('<!-- agent:cost-ledger -->'));
-  const cost = ledger?.body.match(/^## Agent cost for this story: (\S+)/m)?.[1];
+  const cost = ledger?.body.match(/^## Agent cost for this story: (.+)$/m)?.[1];
   const lead = hours == null ? 'unknown' : hours < 48 ? `${hours.toFixed(1)} hours` : `${(hours / 24).toFixed(1)} days`;
   gh('issue', 'comment', issue, '--repo', repo, '--body',
     `<!-- agent:delivered -->\n**Delivered to integration by PR #${pr.number}; deploying to the QA sandbox.**\n\n` +
-    `Lead time from \`agent:plan\` to merge: **${lead}**.` + (cost ? ` Agent cost so far: **${cost}** (see the cost ledger above).` : ''));
+    `Lead time from \`agent:plan\` to merge: **${lead}**.` + (cost ? ` Agent cost and runner minutes so far: **${cost}** (see the cost ledger above; the QA deploy adds its minutes when it finishes).` : ''));
 }
