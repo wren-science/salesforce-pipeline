@@ -31,15 +31,10 @@ private class MyOpenEnquiriesListViewDenialTest {
 
     @IsTest
     static void shouldHideListViewFromPersonaOutsideGroup() {
-        List<ListView> views = new List<ListView>();
+        List<ListView> views;
         System.runAs(TestPersonaFactory.get(TestPersonas.MINIMUM_ACCESS)) {
             Test.startTest();
-            try {
-                views = visibleListViews();
-            } catch (System.QueryException e) {
-                // A user-mode query refused for lack of Lead access is also a denial.
-                views = new List<ListView>();
-            }
+            views = visibleListViews();
             Test.stopTest();
         }
         Assert.isTrue(views.isEmpty(), 'A persona outside Persona_Recruitment_Officer must not see the list view');

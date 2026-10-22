@@ -1,5 +1,5 @@
 import { test, expect } from '../support/evidence';
-import { personaUserId, query, retrieveMetadata, runApex } from './support/org';
+import { personaUserId, query, retrieveMetadata, runApex } from '../support/org';
 
 // Issue #20: Recruitment Officers get a "My open enquiries" Lead list view, showing only the
 // unconverted Leads they own, shared only with the persona public group (DES-02, SHR-03, SHR-04).
@@ -46,8 +46,9 @@ test.describe('#20 My open enquiries list view', () => {
   });
 
   test.afterAll(async () => {
-    // Remove what the conversion actually created (in QA, NPSP may name the Account differently), and
-    // fail loudly if anything is left behind in a shared org (PIPE-15).
+    // Remove only what the conversion actually created (in QA, NPSP may name the Account differently), and
+    // fail loudly if anything is left behind in a shared org (PIPE-15). If the conversion attached to an
+    // Account that holds other Contacts (a duplicate or matching rule), stop rather than delete real data.
     runApex(`
       List<Lead> leads = [SELECT Id, ConvertedContactId, ConvertedAccountId FROM Lead WHERE Company = '${marker}'];
       Set<Id> contactIds = new Set<Id>();
@@ -56,7 +57,9 @@ test.describe('#20 My open enquiries list view', () => {
         if (l.ConvertedContactId != null) contactIds.add(l.ConvertedContactId);
         if (l.ConvertedAccountId != null) accountIds.add(l.ConvertedAccountId);
       }
-      delete [SELECT Id FROM Contact WHERE Id IN :contactIds OR AccountId IN :accountIds];
+      Integer others = [SELECT COUNT() FROM Contact WHERE AccountId IN :accountIds AND Id NOT IN :contactIds];
+      if (others > 0) throw new IllegalArgumentException('Converted Account has other Contacts; not deleting it');
+      delete [SELECT Id FROM Contact WHERE Id IN :contactIds];
       delete [SELECT Id FROM Account WHERE Id IN :accountIds];
       delete [SELECT Id FROM Lead WHERE Id IN :leads];
     `);
