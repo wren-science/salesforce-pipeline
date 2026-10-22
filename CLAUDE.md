@@ -68,6 +68,9 @@ State lives in GitHub, never in conversation history (`PIPE-06`):
   every run (`PIPE-15`). Data helpers act as the pipeline's identity through the org in `SF_DATA_ORG`.
 - Test helpers may be added in `tests/e2e/support/`. `global-setup.ts`, `totp.ts` and `evidence.ts` are the
   pipeline's harness: CI always runs integration's copies of those three, so changes to them in a story have no effect.
+- Run pipeline scripts from the repository root with relative paths (`node scripts/agent-records.mjs …`):
+  the allowlist matches those, not absolute paths. Put throwaway probes under `.agent/<issue>/diagnostics/`,
+  never in `tests/e2e/specs`, so there is nothing to delete afterwards.
 - One command per Bash call. Compound commands (`a; b`, `a && b`, `cd x && …`) and shell scripts are denied by
   the tool allowlist; use the Read/Grep/Glob tools to look at files.
 - Keep commits small and messages specific; reference the issue number.
