@@ -1,0 +1,6 @@
+{
+  "currency": "AUD",
+  "symbol": "A$",
+  "usdRate": 1.44,
+  "rateNote": "approximate rate for early October 2026; update in config/cost.json"
+}

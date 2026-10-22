@@ -131,7 +131,11 @@ jobs:
 
       - name: Report (test-writer)
         if: always()
-        run: node scripts/agent-report.mjs "test-writer" "${{ steps.testwriter.outputs.execution_file }}"
+        run: |
+          T="$RUNNER_TEMP/pipeline"; mkdir -p "$T/scripts" "$T/config"
+          # Integration's copies: the agent could have changed the working tree, and this step holds a token.
+          for f in scripts/agent-report.mjs scripts/cost-ledger.mjs config/cost.json; do git show "origin/integration:$f" > "$T/$f"; done
+          node "$T/scripts/agent-report.mjs" test-writer "${{ steps.testwriter.outputs.execution_file }}" --json "$T/test-writer.json"
       - name: Developer agent
         id: developer
         uses: anthropics/claude-code-action@05049bd0bcda11738058a1318af29d1ac8d111b4 # v1.0.245
@@ -160,9 +164,15 @@ jobs:
             --allowedTools "Read,Grep,Glob,Edit,Write,Bash(sf:*),Bash(node scripts/personas.mjs:*),Bash(cd tests/e2e && npx playwright test:*),Bash(npx playwright test:*),Bash(git add:*),Bash(git commit:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git push:*),Bash(gh issue view:*),Bash(gh issue edit:*),Bash(gh pr create:*),Bash(gh pr edit:*),Bash(gh pr view:*),Bash(ls:*),Bash(cat:*),Bash(head:*),Bash(tail:*),Bash(find:*),Bash(grep:*),Bash(wc:*),Bash(cd:*),Bash(pwd),Bash(mkdir:*),Bash(jq:*)"
             --disallowedTools "Edit(.github/**),Write(.github/**),Edit(manifest/**),Write(manifest/**),Bash(sf org login:*),Bash(sf org logout:*)"
 
-      - name: Report (developer)
+      - name: Report and cost (developer)
         if: always()
-        run: node scripts/agent-report.mjs "developer" "${{ steps.developer.outputs.execution_file }}"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          T="$RUNNER_TEMP/pipeline"
+          node "$T/scripts/agent-report.mjs" developer "${{ steps.developer.outputs.execution_file }}" --json "$T/developer.json"
+          node "$T/scripts/cost-ledger.mjs" --issue "${{ github.event.issue.number }}" --run-url "$RUN_URL" "$T"/test-writer.json "$T"/developer.json
       - name: Log out of the scratch org
         if: always()
         run: sf org logout --target-org agent --no-prompt >/dev/null 2>&1 || true

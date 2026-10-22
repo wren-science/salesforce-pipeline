@@ -79,4 +79,40 @@ jobs:
 
       - name: Report (${{ matrix.role }})
         if: always() && steps.pr.outputs.number != ''
-        run: node scripts/agent-report.mjs "${{ matrix.role }}" "${{ steps.reviewer.outputs.execution_file }}"
+        run: |
+          T="$RUNNER_TEMP/pipeline"; mkdir -p "$T/scripts" "$T/config"
+          # Integration's copies: the agent could have changed the working tree, and this step holds a token.
+          for f in scripts/agent-report.mjs scripts/cost-ledger.mjs config/cost.json; do git show "origin/integration:$f" > "$T/$f"; done
+          mkdir -p cost
+          node "$T/scripts/agent-report.mjs" "${{ matrix.role }}" "${{ steps.reviewer.outputs.execution_file }}" --json "cost/${{ matrix.role }}.json"
+      - uses: actions/upload-artifact@v4
+        if: always() && steps.pr.outputs.number != ''
+        with:
+          name: cost-${{ matrix.role }}
+          path: cost/
+          retention-days: 1
+
+  cost:
+    name: Add review cost to the story
+    needs: review
+    if: always() && needs.review.result != 'skipped'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: integration
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: cost-*
+          path: cost
+          merge-multiple: true
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          TITLE: ${{ github.event.workflow_run.display_title }}
+        run: |
+          ISSUE=$(printf '%s' "$TITLE" | grep -oE ' · feature/[0-9]+-' | grep -oE '[0-9]+' | head -1)
+          node scripts/cost-ledger.mjs --issue "$ISSUE" --run-url "$RUN_URL" cost/*.json
