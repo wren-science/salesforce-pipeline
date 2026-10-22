@@ -108,6 +108,9 @@ for (const p of catalogue) {
       '--instance-url', process.env.INSTANCE_URL, '--alias', alias);
   }
 
+  // Sign-in links from `sf org open` are one-time and short-lived, so Playwright creates its own just before use
+  // from this alias; the .url file is only a fallback for runs where the CLI isn't available (e.g. a container).
+  writeFileSync(join(authDir, `${p.key}.alias`), alias, { mode: 0o600 });
   writeFileSync(join(authDir, `${p.key}.url`), sf('org', 'open', '-o', alias, '--url-only').url, { mode: 0o600 });
   log(`${p.key}: ready (${p.permissionSetGroups.join(', ')})`);
 }
