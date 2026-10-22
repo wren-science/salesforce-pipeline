@@ -1,8 +1,8 @@
 # Engineering standards
 
 These are the canonical standards for this repo. Agents read them before planning, cite them when
-building, and reviewers block changes that break them. The GitHub Wiki, if used, is only a published
-view of this folder.
+building, and reviewers block changes that break them. The [GitHub wiki](https://github.com/wren-science/salesforce-pipeline/wiki)
+is a read-only copy, regenerated from this folder on every change by `.github/workflows/publish-wiki.yml`.
 
 **Status: draft starter set.** They are deliberately short. Rewrite them in your own words in Phase 2;
 keep the IDs stable once anything cites them.

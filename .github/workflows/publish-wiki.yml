@@ -1,0 +1,41 @@
+name: Publish docs to wiki
+
+# The repo is the source of truth; the wiki is a generated, read-only view of docs/.
+on:
+  push:
+    branches: [integration]
+    paths:
+      - "docs/**"
+      - ".github/scripts/publish-wiki.mjs"
+      - ".github/workflows/publish-wiki.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-wiki
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Clone wiki
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: git clone "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.wiki.git" wiki
+
+      - name: Generate pages
+        run: node .github/scripts/publish-wiki.mjs . wiki
+
+      - name: Push if changed
+        working-directory: wiki
+        run: |
+          git add -A
+          if git diff --cached --quiet; then echo "Wiki already up to date"; exit 0; fi
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -m "Publish docs from ${GITHUB_SHA::7}"
+          git push
