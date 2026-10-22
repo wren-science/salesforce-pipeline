@@ -185,6 +185,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
         run: |
           set +e
           node scripts/evidence.mjs --playwright evidence/tests/e2e/results/results.json --apex evidence/results/apex \
@@ -192,7 +193,8 @@ jobs:
           OK=$?
           [ "${{ needs.work.outputs.deploy }}" = "success" ] || OK=1
           cat evidence.md >> "$GITHUB_STEP_SUMMARY"
-          PR=$(gh api "repos/${{ github.repository }}/commits/$HEAD_SHA/pulls" --jq '.[0].number')
+          # Find the PR by its head branch: commits/{sha}/pulls can answer 200 with an empty body.
+          PR=$(gh api "repos/${{ github.repository }}/pulls?state=open&head=${{ github.repository_owner }}:$HEAD_BRANCH" --jq '.[0].number // empty')
           if [ -n "$PR" ]; then
             BODY="<!-- evidence:tests/scratch -->"$'\n'"$(cat evidence.md)"
             CID=$(gh api "repos/${{ github.repository }}/issues/$PR/comments" --jq '[.[] | select(.body | startswith("<!-- evidence:tests/scratch -->"))][0].id')

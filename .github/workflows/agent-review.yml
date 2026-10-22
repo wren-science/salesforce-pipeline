@@ -47,10 +47,12 @@ jobs:
           TITLE: ${{ github.event.workflow_run.display_title }}
         run: |
           HEAD_SHA=$(printf '%s' "$TITLE" | grep -oE '[0-9a-f]{40}$' || true)
-          [ -n "$HEAD_SHA" ] || { echo "No PR commit in the run name"; exit 1; }
+          BRANCH=$(printf '%s' "$TITLE" | grep -oE ' · feature/[A-Za-z0-9._/-]+ · ' | sed -E 's/^ · //; s/ · $//' || true)
+          [ -n "$HEAD_SHA" ] && [ -n "$BRANCH" ] || { echo "No PR branch/commit in the run name"; exit 1; }
           git fetch --no-tags origin "$HEAD_SHA"
           git checkout "$HEAD_SHA" -- force-app tests config 2>/dev/null || true
-          PR=$(gh api "repos/${{ github.repository }}/commits/$HEAD_SHA/pulls" --jq '.[0].number')
+          # By head branch: commits/{sha}/pulls can answer 200 with an empty body.
+          PR=$(gh api "repos/${{ github.repository }}/pulls?state=open&head=${{ github.repository_owner }}:$BRANCH" --jq '.[0].number // empty')
           echo "number=$PR" >> "$GITHUB_OUTPUT"
 
       - name: Reviewer agent
@@ -79,4 +81,40 @@ jobs:
 
       - name: Report (${{ matrix.role }})
         if: always() && steps.pr.outputs.number != ''
-        run: node scripts/agent-report.mjs "${{ matrix.role }}" "${{ steps.reviewer.outputs.execution_file }}"
+        run: |
+          T="$RUNNER_TEMP/pipeline"; mkdir -p "$T/scripts" "$T/config"
+          # Integration's copies: the agent could have changed the working tree, and this step holds a token.
+          for f in scripts/agent-report.mjs scripts/cost-ledger.mjs config/cost.json; do git show "origin/integration:$f" > "$T/$f"; done
+          mkdir -p cost
+          node "$T/scripts/agent-report.mjs" "${{ matrix.role }}" "${{ steps.reviewer.outputs.execution_file }}" --json "cost/${{ matrix.role }}.json"
+      - uses: actions/upload-artifact@v4
+        if: always() && steps.pr.outputs.number != ''
+        with:
+          name: cost-${{ matrix.role }}
+          path: cost/
+          retention-days: 1
+
+  cost:
+    name: Add review cost to the story
+    needs: review
+    if: always() && needs.review.result != 'skipped'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: integration
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: cost-*
+          path: cost
+          merge-multiple: true
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          TITLE: ${{ github.event.workflow_run.display_title }}
+        run: |
+          ISSUE=$(printf '%s' "$TITLE" | grep -oE ' · feature/[0-9]+-' | grep -oE '[0-9]+' | head -1)
+          node scripts/cost-ledger.mjs --issue "$ISSUE" --run-url "$RUN_URL" cost/*.json

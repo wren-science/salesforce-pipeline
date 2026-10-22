@@ -41,6 +41,21 @@ picks `RunRepositoryTests` (this repo's tests only) or `NoTestRun` when there ar
 | `devhub` | `integration` | None | `SFDX_AUTH_URL_DEV_HUB` |
 | `agents` | `integration` | None | `CLAUDE_CODE_OAUTH_TOKEN` |
 
+## Agent cost per story
+
+Every agent run (planner, test writer, developer, reviewers, repair) adds a row to one comment on the story's
+issue, marked `<!-- agent:cost-ledger -->`. Each row shows the run's turns, its tokens (input, output, cache
+read, cache write), and its cost in US$ and A$. The heading shows the story's running total. Rows come from
+`scripts/agent-report.mjs --json` and are merged by `scripts/cost-ledger.mjs`.
+
+- The rows are stored inside the comment as base64 JSON, and each row is keyed by run, attempt and role, so
+  rerunning a job doesn't count it twice.
+- Review and repair runs find the story from their `feature/<issue>-` branch.
+- The cost is Claude Code's `total_cost_usd`, the API list-price equivalent, whatever plan the pipeline
+  is billed on. The A$ rate is set in `config/cost.json`. CI runner minutes are not included.
+- The report and ledger steps run integration's copies of the scripts (`git show origin/integration:...`),
+  not the working tree an agent may have changed, because those steps hold a token that can write.
+
 ## Tool versions (PIPE-16)
 
 Salesforce CLI 2.154.4, sfdx-hardis 8.15.0, Code Analyzer 5.16.0 (`.github/actions/setup-sf`); Playwright 1.64.0

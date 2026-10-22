@@ -49,6 +49,14 @@ jobs:
             --max-turns 60
             --allowedTools "Read,Grep,Glob,Write,Bash(gh issue view:*),Bash(gh issue comment:*),Bash(gh issue edit:*),Bash(ls:*),Bash(cat:*),Bash(head:*),Bash(tail:*),Bash(find:*),Bash(grep:*),Bash(wc:*),Bash(cd:*),Bash(pwd),Bash(mkdir:*),Bash(jq:*)"
 
-      - name: Report (planner)
+      - name: Report and cost (planner)
         if: always()
-        run: node scripts/agent-report.mjs "planner" "${{ steps.planner.outputs.execution_file }}"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          T="$RUNNER_TEMP/pipeline"; mkdir -p "$T/scripts" "$T/config"
+          # Integration's copies: the agent could have changed the working tree, and this step holds a token.
+          for f in scripts/agent-report.mjs scripts/cost-ledger.mjs config/cost.json; do git show "origin/integration:$f" > "$T/$f"; done
+          node "$T/scripts/agent-report.mjs" planner "${{ steps.planner.outputs.execution_file }}" --json "$T/planner.json"
+          node "$T/scripts/cost-ledger.mjs" --issue "${{ github.event.issue.number }}" --run-url "$RUN_URL" "$T/planner.json"

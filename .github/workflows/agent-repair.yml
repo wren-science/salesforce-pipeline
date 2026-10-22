@@ -36,7 +36,7 @@ jobs:
       - id: decide
         env:
           GH_TOKEN: ${{ github.token }}
-          WF: ${{ github.event.workflow_run.name }}
+          WF: ${{ github.event.workflow.name }}
           CONCLUSION: ${{ github.event.workflow_run.conclusion }}
           TITLE: ${{ github.event.workflow_run.display_title }}
         run: |
@@ -45,7 +45,8 @@ jobs:
           HEAD_SHA=$(printf '%s' "$TITLE" | grep -oE '[0-9a-f]{40}$' || true)
           BRANCH=$(printf '%s' "$TITLE" | grep -oE ' · feature/[A-Za-z0-9._/-]+ · ' | sed -E 's/^ · //; s/ · $//' || true)
           [ -n "$HEAD_SHA" ] && [ -n "$BRANCH" ] || { echo "No PR branch/commit in the run name"; exit 0; }
-          PR=$(gh api "repos/$R/commits/$HEAD_SHA/pulls" --jq '.[0].number')
+          # By head branch: commits/{sha}/pulls can answer 200 with an empty body.
+          PR=$(gh api "repos/$R/pulls?state=open&head=${{ github.repository_owner }}:$BRANCH" --jq '.[0].number // empty')
           [ -n "$PR" ] || exit 0
           # Only repair the PR's current head: a later push already supersedes this result.
           [ "$(gh api "repos/$R/pulls/$PR" --jq .head.sha)" = "$HEAD_SHA" ] || { echo "Stale result"; exit 0; }
@@ -173,9 +174,19 @@ jobs:
             --max-turns 120
             --allowedTools "Read,Grep,Glob,Edit,Write,Bash(sf:*),Bash(node scripts/personas.mjs:*),Bash(cd tests/e2e && npx playwright test:*),Bash(npx playwright test:*),Bash(git add:*),Bash(git commit:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git push:*),Bash(gh pr view:*),Bash(gh pr edit:*),Bash(gh run view:*),Bash(gh pr checks:*),Bash(ls:*),Bash(cat:*),Bash(head:*),Bash(tail:*),Bash(find:*),Bash(grep:*),Bash(wc:*),Bash(cd:*),Bash(pwd),Bash(mkdir:*),Bash(jq:*)"
             --disallowedTools "Edit(.github/**),Write(.github/**),Edit(manifest/**),Write(manifest/**),Bash(sf org login:*),Bash(sf org logout:*)"
-      - name: Report (repair)
+      - name: Report and cost (repair)
         if: always()
-        run: node scripts/agent-report.mjs "repair" "${{ steps.repair.outputs.execution_file }}"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          BRANCH: ${{ needs.gate.outputs.branch }}
+        run: |
+          T="$RUNNER_TEMP/pipeline"; mkdir -p "$T/scripts" "$T/config"
+          # Integration's copies: the agent could have changed the working tree, and this step holds a token.
+          for f in scripts/agent-report.mjs scripts/cost-ledger.mjs config/cost.json; do git show "origin/integration:$f" > "$T/$f"; done
+          node "$T/scripts/agent-report.mjs" repair "${{ steps.repair.outputs.execution_file }}" --json "$T/repair.json"
+          ISSUE=$(printf '%s' "$BRANCH" | sed -nE 's#^feature/([0-9]+)-.*#\1#p')
+          node "$T/scripts/cost-ledger.mjs" --issue "$ISSUE" --run-url "$RUN_URL" "$T/repair.json"
       - if: always()
         run: sf org logout --target-org agent --no-prompt >/dev/null 2>&1 || true
 
