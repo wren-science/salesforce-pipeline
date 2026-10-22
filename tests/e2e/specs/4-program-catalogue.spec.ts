@@ -1,0 +1,102 @@
+import { test, expect } from '../support/evidence';
+import type { Locator, Page } from '@playwright/test';
+
+// Issue #4: Program catalogue. Runs as the Recruitment Officer, the persona that maintains Programs
+// through its Recruitment_Officer permission set group (DES-01, TST-17).
+// Data is synthetic and unique per run (PIPE-14): codes are E2E-<runId>-<n>, within Program Code's 20 chars.
+// The persona has no Delete, so the harness removes E2E-* Programs after the run (PIPE-15, plan decision 6b).
+const runId = Date.now().toString(36).toUpperCase();
+const code = (n: number) => `E2E-${runId}-${n}`;
+const name = (n: number) => `E2E Program ${runId} ${n}`;
+
+type Program = { n: number; studyLevel: string; faculty: string; active: boolean };
+
+async function pick(scope: Locator, label: string, option: string) {
+  await scope.getByRole('combobox', { name: label }).click();
+  await scope.getByRole('option', { name: option, exact: true }).click();
+}
+
+async function setActive(scope: Locator, active: boolean) {
+  const box = scope.getByRole('checkbox', { name: 'Active' });
+  if (active) await box.check();
+  else await box.uncheck();
+}
+
+async function fillNewProgram(page: Page, p: Program, programCode = code(p.n)) {
+  await page.goto('/lightning/o/Program__c/new');
+  const dialog = page.getByRole('dialog');
+  await dialog.getByLabel('Program Name').fill(name(p.n));
+  await dialog.getByLabel('Program Code').fill(programCode);
+  await pick(dialog, 'Study Level', p.studyLevel);
+  await pick(dialog, 'Faculty', p.faculty);
+  await setActive(dialog, p.active);
+  await dialog.getByRole('button', { name: 'Save', exact: true }).click();
+  return dialog;
+}
+
+async function createProgram(page: Page, p: Program) {
+  await fillNewProgram(page, p);
+  await page.waitForURL(/\/lightning\/r\/Program__c\/\w+\/view/);
+  await expect(page.getByRole('heading', { name: new RegExp(name(p.n)) }).first()).toBeVisible();
+}
+
+test.describe('#4 Program catalogue: Recruitment Officer', () => {
+  test.beforeEach(async ({}, testInfo) => {
+    test.skip(testInfo.project.name !== 'recruitment-officer', 'Programs are maintained by the Recruitment Officer');
+  });
+
+  test('#4 AC1: Recruitment Officer creates a Program with code, study level, faculty and active', async ({ app, page }) => {
+    await app.openObjectHome('Program__c');
+    await expect(app.newButton()).toBeVisible();
+    await createProgram(page, { n: 1, studyLevel: 'Postgraduate coursework', faculty: 'Health', active: true });
+    await expect(page.getByText(code(1), { exact: true }).first()).toBeVisible();
+    await expect(page.getByText('Postgraduate coursework', { exact: true }).first()).toBeVisible();
+    await expect(page.getByText('Health', { exact: true }).first()).toBeVisible();
+    await expect(page.getByRole('checkbox', { name: 'Active' }).first()).toBeChecked();
+  });
+
+  test('#4 AC2: saving a duplicate Program Code shows a duplicate-value error', async ({ page }) => {
+    await createProgram(page, { n: 2, studyLevel: 'Undergraduate', faculty: 'Business', active: true });
+    const dialog = await fillNewProgram(page, { n: 3, studyLevel: 'Research', faculty: 'Education', active: true }, code(2));
+    await expect(dialog.getByText(/duplicate value found/i).first()).toBeVisible();
+    await expect(dialog.getByText(/Program Code/).first()).toBeVisible();
+    await expect(page).not.toHaveURL(/\/lightning\/r\/Program__c\//);
+  });
+
+  test("#4 AC3: Recruitment Officer edits a Program's study level and active flag", async ({ page }) => {
+    await createProgram(page, { n: 4, studyLevel: 'Undergraduate', faculty: 'Arts and Humanities', active: true });
+    await page.getByRole('button', { name: 'Edit', exact: true }).first().click();
+    const dialog = page.getByRole('dialog');
+    await pick(dialog, 'Study Level', 'Research');
+    await setActive(dialog, false);
+    await dialog.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(dialog).toHaveCount(0);
+    await expect(page.getByText('Research', { exact: true }).first()).toBeVisible();
+    await expect(page.getByRole('checkbox', { name: 'Active' }).first()).not.toBeChecked();
+  });
+
+  test('#4 AC3: Recruitment Officer cannot delete a Program (denial, TST-03)', async ({ page }) => {
+    await createProgram(page, { n: 5, studyLevel: 'Undergraduate', faculty: 'Science and Engineering', active: true });
+    await expect(page.getByRole('button', { name: 'Edit', exact: true }).first()).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Delete', exact: true })).toHaveCount(0);
+    const more = page.getByRole('button', { name: 'Show more actions' }).first();
+    if (await more.isVisible()) {
+      await more.click();
+      await expect(page.getByRole('menuitem', { name: 'Delete' })).toHaveCount(0);
+    }
+  });
+
+  test('#4 AC4: Programs tab opens the Active Programs list showing only active programs', async ({ page }) => {
+    await createProgram(page, { n: 6, studyLevel: 'Undergraduate', faculty: 'Business', active: true });
+    await createProgram(page, { n: 7, studyLevel: 'Undergraduate', faculty: 'Business', active: false });
+
+    await page.goto('/lightning/app/c__Recruitment');
+    await page.getByRole('link', { name: 'Programs', exact: true }).first().click();
+    await page.waitForURL(/\/lightning\/o\/Program__c\//);
+
+    await page.goto('/lightning/o/Program__c/list?filterName=Active_Programs');
+    await expect(page.getByText('Active Programs').first()).toBeVisible();
+    await expect(page.getByRole('link', { name: name(6), exact: true })).toBeVisible();
+    await expect(page.getByRole('link', { name: name(7), exact: true })).toHaveCount(0);
+  });
+});
