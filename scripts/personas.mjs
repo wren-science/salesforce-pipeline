@@ -86,14 +86,6 @@ for (const p of catalogue) {
       log(`${p.key}: added to group ${p.publicGroup}`);
     }
   }
-  if (mode === 'jwt') {
-    const pre = query(org, "SELECT Id FROM PermissionSet WHERE Name = 'Salesforce_Pipeline_CI'")[0];
-    if (pre && !query(org, `SELECT Id FROM PermissionSetAssignment WHERE AssigneeId = '${user.Id}' AND PermissionSetId = '${pre.Id}'`).length) {
-      sf('data', 'create', 'record', '-o', org, '-s', 'PermissionSetAssignment', '-v', `AssigneeId=${user.Id} PermissionSetId=${pre.Id}`);
-    }
-    sf('org', 'login', 'jwt', '--username', username, '--client-id', process.env.SFDX_CLIENT_ID, '--jwt-key-file', process.env.JWT_KEY_FILE,
-      '--instance-url', process.env.INSTANCE_URL, '--alias', alias);
-  }
 
   // A fresh password each run lets Playwright complete Salesforce's first-login form if it appears.
   const password = 'Pw1!' + randomBytes(18).toString('base64url');
@@ -105,6 +97,16 @@ for (const p of catalogue) {
   const envLine = `PERSONA_PASSWORD_${p.key.toUpperCase().replace(/-/g, '_')}=${password}\n`;
   if (process.env.GITHUB_ENV) appendFileSync(process.env.GITHUB_ENV, envLine);
   appendFileSync(join(authDir, 'persona.env'), envLine, { mode: 0o600 });
+
+  // JWT login comes after the password change: setting a password ends the user's existing sessions.
+  if (mode === 'jwt') {
+    const pre = query(org, "SELECT Id FROM PermissionSet WHERE Name = 'Salesforce_Pipeline_CI'")[0];
+    if (pre && !query(org, `SELECT Id FROM PermissionSetAssignment WHERE AssigneeId = '${user.Id}' AND PermissionSetId = '${pre.Id}'`).length) {
+      sf('data', 'create', 'record', '-o', org, '-s', 'PermissionSetAssignment', '-v', `AssigneeId=${user.Id} PermissionSetId=${pre.Id}`);
+    }
+    sf('org', 'login', 'jwt', '--username', username, '--client-id', process.env.SFDX_CLIENT_ID, '--jwt-key-file', process.env.JWT_KEY_FILE,
+      '--instance-url', process.env.INSTANCE_URL, '--alias', alias);
+  }
 
   writeFileSync(join(authDir, `${p.key}.url`), sf('org', 'open', '-o', alias, '--url-only').url, { mode: 0o600 });
   log(`${p.key}: ready (${p.permissionSetGroups.join(', ')})`);

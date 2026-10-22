@@ -70,6 +70,7 @@ jobs:
         working-directory: tests/e2e
         env:
           EVIDENCE: lean
+          PERSONA_TOTP_RECRUITMENT_OFFICER: ${{ secrets.PERSONA_TOTP_RECRUITMENT_OFFICER }}
         run: |
           npm ci --no-fund --no-audit
           npx playwright install --with-deps chromium

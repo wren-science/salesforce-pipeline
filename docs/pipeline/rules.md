@@ -18,7 +18,7 @@ seem to disagree, the standards win and this file is corrected. Keywords follow 
 | PIPE-10 | Every PR passes the required checks (`Static checks`, `tests/scratch`, `validate/qa`) before merge. |
 | PIPE-11 | Every acceptance criterion has a Playwright test, run as a persona user (TST-16, TST-17) in the story's scratch org and named `#<issue> AC<n>: <what it proves>`. |
 | PIPE-12 | Playwright tests locate elements by role, label or `data-testid`: no generated ids, CSS paths or fixed waits. |
-| PIPE-13 | Persona test users in orgs are built from `config/personas.json`: the persona's profile, permission set group and persona public group (06 §6.1, SHR-04), plus `Persona Base` (API login only) as the profile until the User Security Model Standard names one. |
+| PIPE-13 | Persona test users in orgs are built from `config/personas.json`: the persona's profile, permission set group and persona public group (06 §6.1, SHR-04), plus `Persona Base` (API login only) as the profile until the User Security Model Standard names one. Where an org enforces MFA (QA), each persona test user has an authenticator-app (TOTP) secret held only in that org's GitHub environment. |
 | PIPE-14 | Evidence is safe to publish: synthetic data only, persona sessions logged out, no frontdoor URLs in logs or artefacts. Full video and traces only in scratch orgs. |
 | PIPE-15 | Tests that run in a shared org create their own data and remove it afterwards. |
 | PIPE-16 | Tool versions in CI are pinned and changed in their own PR. |
