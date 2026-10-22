@@ -7,3 +7,9 @@ integration or External Client App (INT-01), a new scheduled job (ASY-08), a new
 
 Name each one `NNNN-<slug>.md`, copying `0000-template.md`. Agents may propose an ADR (status Proposed);
 a person accepts it. Link the ADR from the story and the PR.
+
+## Index
+
+| ADR | Decision | Status |
+|---|---|---|
+| [0001](0001-platform-packages.md) | Trigger Actions Framework and Nebula Logger as unlocked platform packages | Accepted |
