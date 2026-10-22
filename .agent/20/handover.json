@@ -1,0 +1,24 @@
+{
+  "issue": 20,
+  "stage": "tests-written",
+  "role": "test-writer",
+  "summary": "Tests written before the build for the 'My open enquiries' Lead list view. Apex: MyOpenEnquiriesListViewTest (visible to Recruitment Officer, hidden from Minimum Access). Playwright: tests/e2e/specs/20-my-open-enquiries.spec.ts, one test per AC in the recruitment-officer project, with synthetic Leads seeded and removed through sf (tests/e2e/support/org.ts). All are expected to fail until force-app/main/default/objects/Lead/listViews/My_open_enquiries.listView-meta.xml exists.",
+  "standards": ["DES-01", "DES-02", "SHR-03", "SHR-04", "SHR-15", "TST-03", "TST-04", "TST-06", "TST-12", "TST-16", "TST-17", "TST-18", "PIPE-11", "PIPE-12", "PIPE-14", "PIPE-15"],
+  "acceptanceCriteria": [
+    { "id": "AC1", "status": "test-written", "evidence": "MyOpenEnquiriesListViewTest.shouldShowListViewToRecruitmentOfficer; Playwright '#20 AC1: Leads tab offers the \"My open enquiries\" list view'" },
+    { "id": "AC2", "status": "test-written", "evidence": "Playwright '#20 AC2: shows only my unconverted Leads with the agreed columns' (own open Lead shown; Lead owned by another user and a converted Lead of the persona hidden; columns Name, Company, Lead Source, Lead Source Detail, Lead Status, Created Date in that order)" },
+    { "id": "AC3", "status": "test-written", "evidence": "MyOpenEnquiriesListViewTest.shouldHideListViewFromPersonaOutsideGroup (denial); Playwright '#20 AC3: list view is shared only with the persona public group' (retrieves the deployed list view and asserts sharedTo is only group Persona_Recruitment_Officer, and the persona is a member and sees it)" }
+  ],
+  "notes": [
+    "Spec file named tests/e2e/specs/20-my-open-enquiries.spec.ts per the test-writer role (<issue>-<slug>), not my-open-enquiries.spec.ts as in the plan.",
+    "Playwright setup uses sf as the org's CLI user: SF_DATA_ORG (alias) if set, otherwise the CLI default target org. The workflows pass --target-org explicitly (agent / pr / qa-admin) and do not set a default; if seeding fails with no target org, the harness needs SF_DATA_ORG exported (a .github change for a person, PIPE-08).",
+    "AC2 'Status' is rendered by Lightning as 'Lead Status'; the test accepts either and the PR should note it.",
+    "Apex ListView query is assumed visible without SeeAllData (plan fallback: if not, drop the two Apex methods and record why; Playwright then carries AC1 and AC3).",
+    "No bulk Apex test: the change adds no Apex, trigger or batch path (TST-03 bulk applies to those).",
+    "Denial limitation from the plan stands: MINIMUM_ACCESS has no Lead access, so it cannot separate 'not in group' from 'no Lead access'."
+  ],
+  "scratchOrg": null,
+  "attempts": { "repair": 0, "review": 0 },
+  "openQuestions": [],
+  "next": "developer"
+}
