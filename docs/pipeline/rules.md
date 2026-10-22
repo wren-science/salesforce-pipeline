@@ -20,5 +20,5 @@ seem to disagree, the standards win and this file is corrected. Keywords follow 
 | PIPE-12 | Playwright tests locate elements by role, label or `data-testid`: no generated ids, CSS paths or fixed waits. |
 | PIPE-13 | Persona test users in orgs are built from `config/personas.json`: the persona's profile, permission set group and persona public group (06 §6.1, SHR-04), plus `Persona Base` (API login only) as the profile until the User Security Model Standard names one. Where an org enforces MFA (QA), each persona test user has an authenticator-app (TOTP) secret held only in that org's GitHub environment. |
 | PIPE-14 | Evidence is safe to publish: synthetic data only, persona sessions logged out, no frontdoor URLs in logs or artefacts. Full video and traces only in agent pool sandboxes. |
-| PIPE-15 | Tests that run in a shared org create their own data and remove it afterwards. |
+| PIPE-15 | Tests that run in a shared org create their own data, named with the `E2E-` prefix. The pipeline removes it after every run with its own identity (`scripts/cleanup-test-data.mjs`). A story whose tests create a new kind of record adds it to `config/test-data.json`. |
 | PIPE-16 | Tool versions in CI are pinned and changed in their own PR. |

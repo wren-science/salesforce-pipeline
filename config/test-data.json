@@ -1,0 +1,17 @@
+{
+  "description": "Records the acceptance tests create, removed after every run in a shared or pool org by scripts/cleanup-test-data.mjs (PIPE-15). Tests name what they create with the E2E- prefix. A story whose tests create a new kind of record adds it here.",
+  "records": [
+    {
+      "sobject": "Lead",
+      "where": "LastName LIKE 'E2E-%' OR Company LIKE 'E2E-%' OR Company LIKE 'PW20-%'"
+    },
+    {
+      "sobject": "Contact",
+      "where": "LastName LIKE 'E2E-%' OR LastName LIKE 'Converted PW20-%'"
+    },
+    {
+      "sobject": "Account",
+      "where": "Name LIKE 'E2E-%' OR Name LIKE 'PW20-%'"
+    }
+  ]
+}

@@ -59,7 +59,9 @@ State lives in GitHub, never in conversation history (`PIPE-06`):
 - Every org (your sandbox, the PR's sandbox, QA) has the Trigger Actions Framework and Nebula Logger installed
   as unlocked packages with no namespace (`config/packages.json`, ADR 0001). Use them as the standards say (03, 07);
   never copy their source into `force-app`.
-- Playwright tests live in `tests/e2e/specs`, named `#<issue> AC<n>: <what it proves>` (`PIPE-11`).
+- Playwright tests live in `tests/e2e/specs`, named `#<issue> AC<n>: <what it proves>` (`PIPE-11`). Records they
+  create are named `E2E-…`; add each new kind of record to `config/test-data.json` so the pipeline removes it after
+  every run (`PIPE-15`). Data helpers act as the pipeline's identity through the org in `SF_DATA_ORG`.
 - Test helpers may be added in `tests/e2e/support/`. `global-setup.ts`, `totp.ts` and `evidence.ts` are the
   pipeline's harness: CI always runs integration's copies of those three, so changes to them in a story have no effect.
 - One command per Bash call. Compound commands (`a; b`, `a && b`, `cd x && …`) and shell scripts are denied by

@@ -157,11 +157,16 @@ jobs:
         working-directory: tests/e2e
         env:
           EVIDENCE: full
+          SF_DATA_ORG: agent
         run: |
           npm ci --no-fund --no-audit
           npx playwright install --with-deps chromium
           export SF_BASE_URL=$(node ../../scripts/lightning-url.mjs agent)
           npx playwright test
+
+      - name: Remove the tests' records from the sandbox (PIPE-15)
+        if: always()
+        run: node scripts/cleanup-test-data.mjs --org agent
 
       - name: Revoke the handed-over sessions
         if: always()

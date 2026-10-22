@@ -129,4 +129,6 @@ function delivered(pr) {
   gh('issue', 'comment', issue, '--repo', repo, '--body',
     `<!-- agent:delivered -->\n**Delivered to integration by PR #${pr.number}; deploying to the QA sandbox.**\n\n` +
     `Lead time from \`agent:plan\` to merge: **${lead}**.` + (cost ? ` Agent cost and runner minutes so far: **${cost}** (see the cost ledger above; the QA deploy adds its minutes when it finishes).` : ''));
+  // A GITHUB_TOKEN merge didn't close the linked issue for #20, so close it here.
+  try { gh('issue', 'close', issue, '--repo', repo, '--reason', 'completed'); } catch { /* already closed */ }
 }
