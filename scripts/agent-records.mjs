@@ -6,7 +6,7 @@
 //        --conclusion confirmed|ruled-out|inconclusive [--evidence <url or path>]...
 //        Appends one investigation step to .agent/<n>/investigation.jsonl.
 //   node scripts/agent-records.mjs tried --issue <n>          Prints the investigation so far (read it first).
-//   node scripts/agent-records.mjs validate <file>...         Validates handover.json / investigation.jsonl / review.json.
+//   node scripts/agent-records.mjs validate <file>...         Validates handover.json / investigation.jsonl / review.json / run-report.json.
 //   node scripts/agent-records.mjs render-review <review.json> Prints the PR comment for a review (pipeline use).
 //   node scripts/agent-records.mjs findings --pr <n>          Open findings from the latest review of each reviewer.
 import { readFileSync, appendFileSync, mkdirSync, existsSync } from 'node:fs';
@@ -90,6 +90,15 @@ function checkReview(r, where) {
   }
   need(r.verdict !== 'approve-able' || !(r.findings ?? []).some((f) => f.blocking), where, 'an approve-able review cannot have blocking findings');
 }
+function checkRunReport(r, where) {
+  need(ROLES.includes(r.role), where, 'role must be an agent role');
+  need(['high', 'medium', 'low'].includes(r.confidence), where, 'confidence must be high, medium or low');
+  for (const k of ['unclearInstructions', 'ambiguousStandards', 'orgSurprises', 'wouldDoDifferently']) {
+    need(Array.isArray(r[k]), where, `${k} must be a list (empty if nothing to say)`);
+    need(!Array.isArray(r[k]) || r[k].length <= 3, where, `${k}: at most 3 items`);
+    for (const [i, x] of (Array.isArray(r[k]) ? r[k] : []).entries()) str(x, `${where} ${k}[${i}]`, 'item', { max: 300 });
+  }
+}
 function validateFile(f) {
   const name = basename(f);
   if (f.includes('/diagnostics/')) return;
@@ -101,8 +110,9 @@ function validateFile(f) {
   let j; try { j = JSON.parse(text); } catch (e) { errs.push(`${f}: not JSON (${e.message})`); return; }
   if (name === 'handover.json') checkHandover(j, f);
   else if (name === 'review.json') checkReview(j, f);
+  else if (name === 'run-report.json') checkRunReport(j, f);
   else if (f.includes('/diagnostics/')) return; // free-form evidence, referenced from investigation steps
-  else errs.push(`${f}: unknown record type (expected handover.json, investigation.jsonl or review.json)`);
+  else errs.push(`${f}: unknown record type (expected handover.json, investigation.jsonl, review.json or run-report.json)`);
 }
 const finish = () => { if (errs.length) { console.error(errs.map((e) => `invalid: ${e}`).join('\n')); process.exit(1); } };
 

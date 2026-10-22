@@ -91,3 +91,40 @@ therefore looks the same, and the verdict comes from data.
 
 The repair agent reads open findings with `node scripts/agent-records.mjs findings --pr <n>`, and answers each
 one in the handover's `findings`.
+
+## Self-assessment: `run-report.json` (every agent, every run)
+
+The last thing every agent does is write a short `run-report.json` in the working directory. It isn't
+committed: the pipeline reads it, removes it, and publishes it with the run facts. Be candid and brief. It
+covers only what the logs can't show. It is not a summary of your work.
+
+```json
+{
+  "role": "developer",
+  "confidence": "medium",
+  "unclearInstructions": ["The prompt says run each test class but not how to list them"],
+  "ambiguousStandards": ["TST-11 vs 06 §7: whether describe checks count as persona tests"],
+  "orgSurprises": ["Apex runs in user mode in this sandbox; test-data setup needed SYSTEM_MODE"],
+  "wouldDoDifferently": ["Retrieve a picklist field from the org before writing its XML"]
+}
+```
+
+- `confidence`: `high`, `medium` or `low` that your result is right.
+- Each list has at most 3 items, each a sentence of at most 300 characters. A list is empty when there is
+  nothing to say.
+- Check it with `node scripts/agent-records.mjs validate run-report.json`.
+
+## Run facts (the pipeline's, not yours)
+
+After each agent run, trusted code (`scripts/run-facts.mjs`) extracts what the run actually did from its
+execution log. It records:
+- tool calls by kind, and the failed ones;
+- deploy attempts and failures, with the failures by error type (`malformed-xml`, `unknown-field-or-object`,
+  `apex-compile`, `missing-dependency`, …) and by component type;
+- Apex and Playwright runs, failed runs and failing tests;
+- tool-allowlist denials by pattern;
+- commands repeated three or more times.
+
+It publishes them, with the self-assessment, in one comment per story (`<!-- agent:run-facts -->`).
+Raw execution logs are never published. These facts are what the pipeline-health check compares across
+stories.
