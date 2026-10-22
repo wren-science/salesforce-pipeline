@@ -43,6 +43,11 @@ Environment for that branch, never in the repo or in repo-wide secrets:
 | `SFDX_CLIENT_CERT_<BRANCH>` | Environment secret | The certificate's private key as raw PEM, so no `SFDX_CLIENT_KEY_<BRANCH>` passphrase or committed key file is needed |
 | `TARGET_USERNAME`, `INSTANCE_URL` | Environment variables | The CI user and login URL, instead of a committed `config/branches/.sfdx-hardis.<branch>.yml` |
 
+The Dev Hub that creates scratch orgs uses a different route: `SFDX_AUTH_URL_DEV_HUB`, a standard CLI
+login stored in the `devhub` environment, which only the `integration` branch (where label-triggered
+workflows run) can use. A JWT login to the Dev Hub can't create scratch orgs (error C-1016), because
+the CLI reuses the Dev Hub's login app inside the new org.
+
 The `qa` environment is set up: it requires a maintainer's approval (Gate 3) and only the `qa` branch
 can use it. Pull-request validation credentials are decided in Phase 1, because a workflow on a PR
 branch can be edited by whoever opened the PR.
