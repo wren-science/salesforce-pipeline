@@ -1,0 +1,17 @@
+{
+  "description": "Platform packages every org needs before force-app deploys (standards README platform baseline; ADR 0001). Installed in order by scripts/install-packages.mjs.",
+  "packages": [
+    {
+      "name": "Nebula Logger - Core",
+      "version": "4.19.5",
+      "id": "04tg7000000IzRdAAK",
+      "why": "Logging framework (07, LOG-01): unlocked, no namespace"
+    },
+    {
+      "name": "Trigger Actions Framework",
+      "version": "0.3.4-1",
+      "id": "04tKY000000R0yHYAS",
+      "why": "Trigger framework (03, TAF-01): unlocked, no namespace"
+    }
+  ]
+}

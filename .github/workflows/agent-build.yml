@@ -43,6 +43,8 @@ jobs:
             --alias agent --duration-days 1 --wait 30 --json > create.json
           USERNAME=$(node -e 'const s=require("fs").readFileSync("create.json","utf8");console.log(JSON.parse(s.slice(s.indexOf("{"))).result.username)')
           echo "username=$USERNAME" >> "$GITHUB_OUTPUT"
+          # Platform packages (TAF, Nebula Logger; ADR 0001) before any force-app deploy.
+          node scripts/install-packages.mjs --org "$USERNAME"
           node scripts/auth-url.mjs "$USERNAME" scratch.url
           openssl enc -aes-256-cbc -pbkdf2 -salt -pass env:SCRATCH_HANDOFF_KEY -in scratch.url -out scratch.enc
           rm -f scratch.url create.json

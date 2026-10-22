@@ -46,6 +46,9 @@ State lives in GitHub, never in conversation history (`PIPE-06`):
 ## Tools
 
 - Salesforce CLI (`sf`) and sfdx-hardis (`sf hardis ... --agent`) are the only ways to touch an org.
+- Every org (your scratch org, PR scratch orgs, QA) has the Trigger Actions Framework and Nebula Logger installed
+  as unlocked packages with no namespace (`config/packages.json`, ADR 0001). Use them as the standards say (03, 07);
+  never copy their source into `force-app`.
 - Playwright tests live in `tests/e2e/specs`, named `#<issue> AC<n>: <what it proves>` (`PIPE-11`).
 - Test helpers may be added in `tests/e2e/support/`. `global-setup.ts`, `totp.ts` and `evidence.ts` are the
   pipeline's harness: CI always runs integration's copies of those three, so changes to them in a story have no effect.
