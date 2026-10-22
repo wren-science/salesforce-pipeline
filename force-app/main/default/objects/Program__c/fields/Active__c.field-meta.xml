@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Active__c</fullName>
+    <defaultValue>true</defaultValue>
+    <description>Whether the program is currently offered. Programs are deactivated rather than deleted (ADR 0002, retain indefinitely). Drives the Active Programs list view. Consumers: Recruitment Officers now; enquiry and application stories (#5, #8, #9) later.</description>
+    <inlineHelpText>Untick when the program is no longer offered. Inactive programs drop off the Active Programs list.</inlineHelpText>
+    <label>Active</label>
+    <securityClassification>Public</securityClassification>
+    <type>Checkbox</type>
+</CustomField>

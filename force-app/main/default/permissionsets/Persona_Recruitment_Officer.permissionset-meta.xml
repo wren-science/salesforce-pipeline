@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <PermissionSet xmlns="http://soap.sforce.com/2006/04/metadata">
-    <description>Persona: Recruitment Officer. Works prospective-student enquiries (Leads) and reads applicants and applications. Granted only through the Recruitment_Officer permission set group (DES-01, SHR-04).</description>
+    <description>Persona: Recruitment Officer. Works prospective-student enquiries (Leads), reads applicants and applications, and maintains the program catalogue (Programs, no delete). Granted only through the Recruitment_Officer permission set group (DES-01, SHR-04).</description>
     <hasActivationRequired>false</hasActivationRequired>
     <label>Persona: Recruitment Officer</label>
     <applicationVisibilities>
@@ -8,13 +8,28 @@
         <visible>true</visible>
     </applicationVisibilities>
     <fieldPermissions>
+        <editable>false</editable>
+        <field>Lead.LeadSource</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
         <editable>true</editable>
         <field>Lead.Lead_Source_Detail__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>
-        <editable>false</editable>
-        <field>Lead.LeadSource</field>
+        <editable>true</editable>
+        <field>Program__c.Active__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>Program__c.Faculty__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>Program__c.Study_Level__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <objectPermissions>
@@ -53,8 +68,21 @@
         <object>Opportunity</object>
         <viewAllRecords>false</viewAllRecords>
     </objectPermissions>
+    <objectPermissions>
+        <allowCreate>true</allowCreate>
+        <allowDelete>false</allowDelete>
+        <allowEdit>true</allowEdit>
+        <allowRead>true</allowRead>
+        <modifyAllRecords>false</modifyAllRecords>
+        <object>Program__c</object>
+        <viewAllRecords>false</viewAllRecords>
+    </objectPermissions>
     <tabSettings>
-        <tab>standard-Lead</tab>
+        <tab>Program__c</tab>
+        <visibility>Visible</visibility>
+    </tabSettings>
+    <tabSettings>
+        <tab>standard-Account</tab>
         <visibility>Visible</visibility>
     </tabSettings>
     <tabSettings>
@@ -62,7 +90,7 @@
         <visibility>Visible</visibility>
     </tabSettings>
     <tabSettings>
-        <tab>standard-Account</tab>
+        <tab>standard-Lead</tab>
         <visibility>Visible</visibility>
     </tabSettings>
     <tabSettings>

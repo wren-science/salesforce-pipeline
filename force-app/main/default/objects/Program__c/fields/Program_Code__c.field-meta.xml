@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Program_Code__c</fullName>
+    <caseSensitive>false</caseSensitive>
+    <description>The program's code in the student system, which masters it (DM-07). Unique, case-insensitive, External Id for upsert and reconciliation. Consumers: Recruitment Officers now; enquiry and application lookups (#5, #8, #9) later.</description>
+    <externalId>true</externalId>
+    <inlineHelpText>The program's code from the student system, for example BSC-CS. Each code can be used by one program only.</inlineHelpText>
+    <label>Program Code</label>
+    <length>20</length>
+    <required>true</required>
+    <securityClassification>Public</securityClassification>
+    <type>Text</type>
+    <unique>true</unique>
+</CustomField>

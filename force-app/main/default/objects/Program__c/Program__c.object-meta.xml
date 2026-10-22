@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomObject xmlns="http://soap.sforce.com/2006/04/metadata">
+    <allowInChatterGroups>false</allowInChatterGroups>
+    <compactLayoutAssignment>Program_Compact</compactLayoutAssignment>
+    <deploymentStatus>Deployed</deploymentStatus>
+    <description>A program (course) students can enquire about and apply to; one record per program offered. Reference data mastered in the student system (Program Code is its key). Business owner: Head of Student Recruitment. Classification: Public. Retain indefinitely: deactivate, do not delete. See ADR 0002.</description>
+    <enableActivities>false</enableActivities>
+    <enableBulkApi>true</enableBulkApi>
+    <enableFeeds>false</enableFeeds>
+    <enableHistory>false</enableHistory>
+    <enableLicensing>false</enableLicensing>
+    <enableReports>false</enableReports>
+    <enableSearch>false</enableSearch>
+    <enableSharing>true</enableSharing>
+    <enableStreamingApi>true</enableStreamingApi>
+    <externalSharingModel>Private</externalSharingModel>
+    <label>Program</label>
+    <nameField>
+        <label>Program Name</label>
+        <trackHistory>false</trackHistory>
+        <type>Text</type>
+    </nameField>
+    <pluralLabel>Programs</pluralLabel>
+    <searchLayouts>
+        <customTabListAdditionalFields>Program_Code__c</customTabListAdditionalFields>
+        <customTabListAdditionalFields>Study_Level__c</customTabListAdditionalFields>
+        <customTabListAdditionalFields>Faculty__c</customTabListAdditionalFields>
+        <customTabListAdditionalFields>Active__c</customTabListAdditionalFields>
+        <lookupDialogsAdditionalFields>Program_Code__c</lookupDialogsAdditionalFields>
+        <lookupDialogsAdditionalFields>Study_Level__c</lookupDialogsAdditionalFields>
+        <lookupDialogsAdditionalFields>Faculty__c</lookupDialogsAdditionalFields>
+        <lookupPhoneDialogsAdditionalFields>Program_Code__c</lookupPhoneDialogsAdditionalFields>
+        <searchResultsAdditionalFields>Program_Code__c</searchResultsAdditionalFields>
+        <searchResultsAdditionalFields>Study_Level__c</searchResultsAdditionalFields>
+        <searchResultsAdditionalFields>Faculty__c</searchResultsAdditionalFields>
+        <searchResultsAdditionalFields>Active__c</searchResultsAdditionalFields>
+    </searchLayouts>
+    <sharingModel>ReadWrite</sharingModel>
+    <visibility>Public</visibility>
+</CustomObject>

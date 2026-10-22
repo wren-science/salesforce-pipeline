@@ -4,7 +4,7 @@
         <headerColor>#14213D</headerColor>
         <shouldOverrideOrgTheme>false</shouldOverrideOrgTheme>
     </brand>
-    <description>Student recruitment workspace: enquiries (Leads), applicants (Contacts) and applications (Opportunities). Visible only through persona permission set groups.</description>
+    <description>Student recruitment workspace: enquiries (Leads), applicants (Contacts) and applications (Opportunities), and the program catalogue (Programs). Visible only through persona permission set groups.</description>
     <formFactors>Large</formFactors>
     <isNavAutoTempTabsDisabled>false</isNavAutoTempTabsDisabled>
     <isNavPersonalizationDisabled>false</isNavPersonalizationDisabled>
@@ -15,5 +15,6 @@
     <tabs>standard-Contact</tabs>
     <tabs>standard-Account</tabs>
     <tabs>standard-Opportunity</tabs>
+    <tabs>Program__c</tabs>
     <uiType>Lightning</uiType>
 </CustomApplication>

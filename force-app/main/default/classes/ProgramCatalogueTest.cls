@@ -187,7 +187,8 @@ private class ProgramCatalogueTest {
             Database.update(p, AccessLevel.USER_MODE);
             Test.stopTest();
         }
-        Program__c saved = [SELECT Study_Level__c, Faculty__c, Active__c FROM Program__c WHERE Program_Code__c = 'SETUP-0'];
+        // System mode on purpose (APX-22): the test runner holds no FLS on Program fields.
+        Program__c saved = [SELECT Study_Level__c, Faculty__c, Active__c FROM Program__c WHERE Program_Code__c = 'SETUP-0' WITH SYSTEM_MODE];
         Assert.areEqual('Research', saved.Study_Level__c, 'Study Level is updated');
         Assert.areEqual('Education', saved.Faculty__c, 'Faculty is updated');
         Assert.isFalse(saved.Active__c, 'Program is deactivated');
@@ -196,15 +197,19 @@ private class ProgramCatalogueTest {
     @IsTest
     static void shouldGrantProgramAccessThroughPermissionSetNotProfile() {
         Schema.DescribeSObjectResult obj;
-        Map<String, Schema.SObjectField> fields;
+        Map<String, Boolean> updateableByField = new Map<String, Boolean>();
         System.runAs(TestPersonaFactory.get(TestPersonas.RECRUITMENT_OFFICER)) {
             obj = Program__c.SObjectType.getDescribe();
-            fields = obj.fields.getMap();
+            Map<String, Schema.SObjectField> fields = obj.fields.getMap();
+            // Field describes are evaluated for the current user, so read them inside runAs.
+            for (String f : new List<String>{ 'Study_Level__c', 'Faculty__c', 'Active__c' }) {
+                updateableByField.put(f, fields.get(f).getDescribe().isUpdateable());
+            }
         }
         Assert.isTrue(obj.isAccessible() && obj.isCreateable() && obj.isUpdateable(), 'Persona can read, create and edit Programs');
         Assert.isFalse(obj.isDeletable(), 'Persona cannot delete Programs (deactivate instead)');
-        for (String f : new List<String>{ 'Study_Level__c', 'Faculty__c', 'Active__c' }) {
-            Assert.isTrue(fields.get(f).getDescribe().isUpdateable(), 'Persona can edit ' + f);
+        for (String f : updateableByField.keySet()) {
+            Assert.isTrue(updateableByField.get(f), 'Persona can edit ' + f);
         }
 
         List<ObjectPermissions> fromPermissionSet = [
@@ -239,6 +244,9 @@ private class ProgramCatalogueTest {
                 refused = true;
             } catch (System.DmlException e) {
                 refused = true;
+            } catch (System.TypeException e) {
+                // User mode reports a missing object permission as "DML operation DELETE not allowed on Program__c".
+                refused = e.getMessage().contains('DELETE not allowed');
             }
             Test.stopTest();
         }
@@ -276,6 +284,8 @@ private class ProgramCatalogueTest {
                 refused = true;
             } catch (System.NoAccessException e) {
                 refused = true;
+            } catch (System.SecurityException e) {
+                refused = true;
             }
         }
         Assert.isTrue(refused, 'A persona with no Program access must not read Programs');
@@ -294,20 +304,31 @@ private class ProgramCatalogueTest {
 
     @IsTest
     static void shouldShowProgramsTabInRecruitmentApp() {
-        Boolean found = false;
+        // Schema.describeTabs() lists Classic apps only; Recruitment is a Lightning app, so read its tabs
+        // through AppDefinition and AppTabMember, which return only apps the persona can open.
+        List<AppDefinition> apps;
+        Integer programTabsInApp = 0;
         System.runAs(TestPersonaFactory.get(TestPersonas.RECRUITMENT_OFFICER)) {
-            for (Schema.DescribeTabSetResult app : Schema.describeTabs()) {
-                if (app.getLabel() != 'Recruitment') {
-                    continue;
-                }
-                for (Schema.DescribeTabResult tab : app.getTabs()) {
-                    if (tab.getSobjectName() == 'Program__c') {
-                        found = true;
-                    }
-                }
+            apps = [SELECT DurableId FROM AppDefinition WHERE DeveloperName = 'Recruitment'];
+            if (!apps.isEmpty()) {
+                programTabsInApp = [
+                    SELECT COUNT()
+                    FROM AppTabMember
+                    WHERE AppDefinitionId = :apps[0].DurableId AND TabDefinition.SobjectName = 'Program__c'
+                ];
             }
         }
-        Assert.isTrue(found, 'The Recruitment app shows the Programs tab to the persona');
+        Assert.areEqual(1, apps.size(), 'The persona can open the Recruitment app');
+        Assert.areEqual(1, programTabsInApp, 'The Recruitment app holds the Programs tab');
+        Assert.areEqual(
+            1,
+            [
+                SELECT COUNT()
+                FROM PermissionSetTabSetting
+                WHERE Name = 'Program__c' AND Parent.Name = 'Persona_Recruitment_Officer' AND Visibility IN ('DefaultOn', 'Visible')
+            ],
+            'Persona_Recruitment_Officer makes the Programs tab visible'
+        );
     }
 
     private static Map<String, String> activeValues(Schema.DescribeFieldResult field) {

@@ -26,7 +26,9 @@ public class TestDataFactory {
 
     public static List<Program__c> createPrograms(Integer count, String codePrefix) {
         List<Program__c> programs = buildPrograms(count, codePrefix);
-        insert programs;
+        // System mode on purpose (APX-22): setup data is created by the test runner, not a persona, and
+        // the runner holds no FLS on Program fields (access is only through persona permission sets).
+        Database.insert(programs, AccessLevel.SYSTEM_MODE);
         return programs;
     }
 }

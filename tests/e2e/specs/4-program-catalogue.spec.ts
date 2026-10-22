@@ -12,8 +12,22 @@ const name = (n: number) => `E2E Program ${runId} ${n}`;
 type Program = { n: number; studyLevel: string; faculty: string; active: boolean };
 
 async function pick(scope: Locator, label: string, option: string) {
-  await scope.getByRole('combobox', { name: label }).click();
-  await scope.getByRole('option', { name: option, exact: true }).click();
+  const box = scope.getByRole('combobox', { name: label });
+  const choice = scope.getByRole('option', { name: option, exact: true });
+  // The modal's listbox can close while Playwright scrolls an option into view; reopen until the value is chosen.
+  await expect(async () => {
+    if ((await box.getAttribute('aria-expanded')) !== 'true') await box.click();
+    await choice.click({ timeout: 3_000 });
+    await expect(box).toHaveText(option, { timeout: 2_000 });
+  }).toPass({ timeout: 20_000 });
+}
+
+// In view mode Lightning shows a checkbox field as the text True or False, not as a checkbox.
+function activeField(page: Page) {
+  return page
+    .getByRole('tabpanel', { name: 'Details' })
+    .getByRole('listitem')
+    .filter({ has: page.getByRole('button', { name: 'Edit Active' }) });
 }
 
 async function setActive(scope: Locator, active: boolean) {
@@ -36,7 +50,8 @@ async function fillNewProgram(page: Page, p: Program, programCode = code(p.n)) {
 
 async function createProgram(page: Page, p: Program) {
   await fillNewProgram(page, p);
-  await page.waitForURL(/\/lightning\/r\/Program__c\/\w+\/view/);
+  // After Save, Lightning opens the record as /lightning/r/<id>/view or /lightning/r/Program__c/<id>/view.
+  await page.waitForURL(/\/lightning\/r\/(Program__c\/)?\w{15,18}\/view/);
   await expect(page.getByRole('heading', { name: new RegExp(name(p.n)) }).first()).toBeVisible();
 }
 
@@ -52,15 +67,16 @@ test.describe('#4 Program catalogue: Recruitment Officer', () => {
     await expect(page.getByText(code(1), { exact: true }).first()).toBeVisible();
     await expect(page.getByText('Postgraduate coursework', { exact: true }).first()).toBeVisible();
     await expect(page.getByText('Health', { exact: true }).first()).toBeVisible();
-    await expect(page.getByRole('checkbox', { name: 'Active' }).first()).toBeChecked();
+    await expect(activeField(page)).toContainText('True');
   });
 
   test('#4 AC2: saving a duplicate Program Code shows a duplicate-value error', async ({ page }) => {
     await createProgram(page, { n: 2, studyLevel: 'Undergraduate', faculty: 'Business', active: true });
     const dialog = await fillNewProgram(page, { n: 3, studyLevel: 'Research', faculty: 'Education', active: true }, code(2));
+    // The platform message (accepted in plan decision 4) names the field by API name: "Program_Code__c duplicates value".
     await expect(dialog.getByText(/duplicate value found/i).first()).toBeVisible();
-    await expect(dialog.getByText(/Program Code/).first()).toBeVisible();
-    await expect(page).not.toHaveURL(/\/lightning\/r\/Program__c\//);
+    await expect(dialog.getByText(/Program[ _]Code/).first()).toBeVisible();
+    await expect(page).not.toHaveURL(/\/lightning\/r\//);
   });
 
   test("#4 AC3: Recruitment Officer edits a Program's study level and active flag", async ({ page }) => {
@@ -72,7 +88,7 @@ test.describe('#4 Program catalogue: Recruitment Officer', () => {
     await dialog.getByRole('button', { name: 'Save', exact: true }).click();
     await expect(dialog).toHaveCount(0);
     await expect(page.getByText('Research', { exact: true }).first()).toBeVisible();
-    await expect(page.getByRole('checkbox', { name: 'Active' }).first()).not.toBeChecked();
+    await expect(activeField(page)).toContainText('False');
   });
 
   test('#4 AC3: Recruitment Officer cannot delete a Program (denial, TST-03)', async ({ page }) => {
