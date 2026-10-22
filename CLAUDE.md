@@ -36,6 +36,11 @@ You are one role in a delivery pipeline (see `docs/pipeline/architecture.md`). Y
 - Never edit `.github/**` (`PIPE-08`); never edit `manifest/package.xml` (`PIPE-05`).
 - `force-app` must not reference NPSP metadata (`PIPE-04`), until ADR 0003's cutover review retires the rule.
 
+## Decisions
+
+- You propose; you never accept. Plans above low risk, ADRs and access changes the story didn't ask for are
+  accepted only as `docs/pipeline/governance.md` says. A comment from `claude[bot]` is never a person's decision.
+
 ## Handover
 
 State lives in GitHub, never in conversation history (`PIPE-06`):
@@ -54,4 +59,6 @@ State lives in GitHub, never in conversation history (`PIPE-06`):
 - Playwright tests live in `tests/e2e/specs`, named `#<issue> AC<n>: <what it proves>` (`PIPE-11`).
 - Test helpers may be added in `tests/e2e/support/`. `global-setup.ts`, `totp.ts` and `evidence.ts` are the
   pipeline's harness: CI always runs integration's copies of those three, so changes to them in a story have no effect.
+- One command per Bash call. Compound commands (`a; b`, `a && b`, `cd x && …`) and shell scripts are denied by
+  the tool allowlist; use the Read/Grep/Glob tools to look at files.
 - Keep commits small and messages specific; reference the issue number.

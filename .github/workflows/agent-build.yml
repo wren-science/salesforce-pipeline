@@ -162,7 +162,12 @@ jobs:
               cd tests/e2e && npx playwright test        (SF_BASE_URL and the persona logins are already set up)
             Persona users already have their permission set groups; deploying force-app updates what those grant.
             Never weaken a test. Then update .agent/${{ github.event.issue.number }}/handover.json (stage "review-required"),
-            commit, `git push -u origin ${{ steps.branch.outputs.name }}`, and open a draft PR into integration with
+            commit, then bring the branch up to date and push (pipeline changes may have landed while you worked; GitHub
+            refuses a push whose .github files differ from integration's):
+              git fetch origin integration
+              git rebase origin/integration
+              git push -u origin ${{ steps.branch.outputs.name }}
+            and open a draft PR into integration with
             `gh pr create --draft --base integration --fill-first` followed by `gh pr edit --body-file pr.md`, where pr.md
             follows .github/pull_request_template.md and starts with "Closes #${{ github.event.issue.number }}".
             Finally label the issue: gh issue edit ${{ github.event.issue.number }} --add-label agent:review-required --remove-label agent:approved
@@ -170,7 +175,7 @@ jobs:
           claude_args: |
             --model claude-opus-5-5
             --max-turns 200
-            --allowedTools "Read,Grep,Glob,Edit,Write,Bash(sf:*),Bash(cd tests/e2e && npx playwright test:*),Bash(npx playwright test:*),Bash(git add:*),Bash(git commit:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git push:*),Bash(gh issue view:*),Bash(gh issue edit:*),Bash(gh pr create:*),Bash(gh pr edit:*),Bash(gh pr view:*),Bash(ls:*),Bash(cat:*),Bash(head:*),Bash(tail:*),Bash(find:*),Bash(grep:*),Bash(wc:*),Bash(cd:*),Bash(pwd),Bash(mkdir:*),Bash(jq:*)"
+            --allowedTools "Read,Grep,Glob,Edit,Write,Bash(sf:*),Bash(cd tests/e2e && npx playwright test:*),Bash(npx playwright test:*),Bash(git add:*),Bash(git commit:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git push:*),Bash(git fetch origin integration),Bash(git rebase origin/integration),Bash(gh issue view:*),Bash(gh issue edit:*),Bash(gh pr create:*),Bash(gh pr edit:*),Bash(gh pr view:*),Bash(ls:*),Bash(cat:*),Bash(head:*),Bash(tail:*),Bash(find:*),Bash(grep:*),Bash(wc:*),Bash(cd:*),Bash(pwd),Bash(mkdir:*),Bash(jq:*)"
             --disallowedTools "Edit(.github/**),Write(.github/**),Edit(manifest/**),Write(manifest/**),Bash(sf org login:*),Bash(sf org logout:*)"
 
       - name: Report and cost (developer)
