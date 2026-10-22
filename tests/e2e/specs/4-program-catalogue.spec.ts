@@ -4,7 +4,8 @@ import type { Locator, Page } from '@playwright/test';
 // Issue #4: Program catalogue. Runs as the Recruitment Officer, the persona that maintains Programs
 // through its Recruitment_Officer permission set group (DES-01, TST-17).
 // Data is synthetic and unique per run (PIPE-14): codes are E2E-<runId>-<n>, within Program Code's 20 chars.
-// The persona has no Delete, so the harness removes E2E-* Programs after the run (PIPE-15, plan decision 6b).
+// The persona has no Delete, so these Programs stay in the org. The harness clean-up of E2E-* Programs
+// (PIPE-15, plan decision 6b) is not built yet; until it is on integration, every run adds up to 7 rows.
 const runId = Date.now().toString(36).toUpperCase();
 const code = (n: number) => `E2E-${runId}-${n}`;
 const name = (n: number) => `E2E Program ${runId} ${n}`;
@@ -88,8 +89,8 @@ test.describe('#4 Program catalogue: Recruitment Officer', () => {
     await createProgram(page, { n: 2, studyLevel: 'Undergraduate', faculty: 'Business', active: true });
     const dialog = await fillNewProgram(page, { n: 3, studyLevel: 'Research', faculty: 'Education', active: true }, code(2));
     // The platform message (accepted in plan decision 4) names the field by API name: "Program_Code__c duplicates value".
-    await expect(dialog.getByText(/duplicate value found/i).first()).toBeVisible();
-    await expect(dialog.getByText(/Program[ _]Code/).first()).toBeVisible();
+    // One locator for the whole message, so the field name cannot match the form's own "Program Code" label.
+    await expect(dialog.getByText(/duplicate value found: Program[ _]Code(__c)? duplicates value/i).first()).toBeVisible();
     await expect(page).not.toHaveURL(/\/lightning\/r\//);
   });
 
@@ -116,7 +117,7 @@ test.describe('#4 Program catalogue: Recruitment Officer', () => {
     }
   });
 
-  test('#4 AC4: Programs tab opens the Active Programs list showing only active programs', async ({ page }) => {
+  test('#4 AC4: Programs tab opens from the Recruitment app and the Active Programs list shows only active programs', async ({ page }) => {
     await createProgram(page, { n: 6, studyLevel: 'Undergraduate', faculty: 'Business', active: true });
     await createProgram(page, { n: 7, studyLevel: 'Undergraduate', faculty: 'Business', active: false });
 

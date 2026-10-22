@@ -1,0 +1,10 @@
+Repair 3 (#4, PR #36): which exception user mode throws for each denial in ProgramCatalogueTest.
+Method: each denial test temporarily caught Exception and failed with its type and message; deployed to the
+story sandbox (alias agent) and ran ProgramCatalogueTest only. The diagnostic code was then removed.
+
+shouldRefuseProgramCreationToMinimumAccessPersona  Database.insert(USER_MODE)  System.SecurityException | Access to entity 'Program__c' denied
+shouldRefuseProgramDeleteToRecruitmentOfficer      Database.delete(USER_MODE)  System.TypeException     | DML operation DELETE not allowed on Program__c
+shouldRefuseProgramReadToMinimumAccessPersona      SOQL WITH USER_MODE         System.SecurityException | Access to entity 'Program__c' denied
+
+After tightening (catch only that type, assert the message): ProgramCatalogueTest 16/16 and
+LeadSourceDetailAccessTest 2/2 pass in the sandbox; Playwright 4-program-catalogue 5/5 pass.

@@ -238,15 +238,11 @@ private class ProgramCatalogueTest {
             Test.startTest();
             try {
                 Database.delete(p, AccessLevel.USER_MODE);
-            } catch (System.SecurityException e) {
-                refused = true;
-            } catch (System.NoAccessException e) {
-                refused = true;
-            } catch (System.DmlException e) {
-                refused = true;
+                Assert.fail('The Recruitment Officer deleted a Program');
             } catch (System.TypeException e) {
-                // User mode reports a missing object permission as "DML operation DELETE not allowed on Program__c".
-                refused = e.getMessage().contains('DELETE not allowed');
+                // User mode reports a missing Delete permission as "DML operation DELETE not allowed on Program__c".
+                Assert.isTrue(e.getMessage().contains('DELETE not allowed on Program__c'), 'Refused for missing Delete access: ' + e.getMessage());
+                refused = true;
             }
             Test.stopTest();
         }
@@ -261,11 +257,10 @@ private class ProgramCatalogueTest {
         System.runAs(TestPersonaFactory.get(TestPersonas.MINIMUM_ACCESS)) {
             try {
                 Database.insert(p, AccessLevel.USER_MODE);
+                Assert.fail('A persona with no Program access created a Program');
             } catch (System.SecurityException e) {
-                refused = true;
-            } catch (System.NoAccessException e) {
-                refused = true;
-            } catch (System.DmlException e) {
+                // User mode reports a missing object permission as "Access to entity 'Program__c' denied".
+                Assert.isTrue(e.getMessage().contains('Access to entity \'Program__c\' denied'), 'Refused for missing Program access: ' + e.getMessage());
                 refused = true;
             }
         }
@@ -280,11 +275,8 @@ private class ProgramCatalogueTest {
             try {
                 Integer visible = [SELECT COUNT() FROM Program__c WITH USER_MODE];
                 Assert.fail('The persona read ' + visible + ' Programs');
-            } catch (System.QueryException e) {
-                refused = true;
-            } catch (System.NoAccessException e) {
-                refused = true;
             } catch (System.SecurityException e) {
+                Assert.isTrue(e.getMessage().contains('Access to entity \'Program__c\' denied'), 'Refused for missing Program access: ' + e.getMessage());
                 refused = true;
             }
         }

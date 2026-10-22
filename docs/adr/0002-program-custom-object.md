@@ -37,6 +37,8 @@ Option 4, `Program__c`, because options 1–3 fail as above (09 §2 ladder, DES-
   who may create and edit is limited by object permission, which only `Persona_Recruitment_Officer` (in PSG
   `Recruitment_Officer`) grants: Read, Create, Edit; no Delete, View All or Modify All. No sharing rule and no
   data-scope group, which avoids the catch-all criteria SHR-07 forbids. This is the OWD decision SHR-02 asks for.
+  Sharing recalculation (08 §6): none needed. The object is new, with no existing rows or share rows. Any later
+  move to Private needs its own ADR with a recalculation plan.
 - **Classification:** `Public` on every field (the catalogue is published); no personal data, so no
   `ComplianceGroup`. Business owner: Head of Student Recruitment (object description, DM-03).
 - **Lifecycle:** Retain Indefinitely. Programs are deactivated (`Active__c = false`), not deleted. The
