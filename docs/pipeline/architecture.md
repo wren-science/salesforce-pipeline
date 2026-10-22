@@ -23,12 +23,21 @@ GitHub Actions on label and check events. Every design and security decision sta
 6. **QA validation** (`validate-qa.yml`): sfdx-hardis check-only deploy to the QA sandbox (`validate/qa`).
 7. **Review agents** (`agent-review.yml`): architecture, security and tests, citing rule IDs. A blocking
    finding adds `agent:rework-required`.
-8. **Repair agent** (`agent-repair.yml`) on failed tests or rework, at most 3 attempts, then a person.
-9. **A person approves the PR** (one review required; agents cannot approve or merge). Squash merge.
-10. **Deploy to QA** (`deploy-qa.yml`): sfdx-hardis deploy, persona users kept current in QA, Playwright
-    regression as personas.
+   When all three are approve-able, the commit gets the status `review/agents`.
+8. **Repair agent** (`agent-repair.yml`) when persona tests or QA validation fail, or a reviewer asks for
+   rework: at most 3 attempts (one per commit), then a person (`human:approval-required`).
+9. **Merge gate** (`merge-gate.yml`, `scripts/merge-gate.mjs`): when `Static checks`, `tests/scratch`,
+   `validate/qa` and `review/agents` have passed on the PR's current commit, it marks the PR ready and squash-merges it.
+   Agents cannot approve or merge; the gate is plain code. If `integration` has moved since the QA
+   validation, it re-runs that validation first, so a story is always validated against QA as it is now.
+   It also comments the lead time and agent cost on the issue.
+10. **Deploy to QA** (`deploy-qa.yml`, dispatched by the gate): sfdx-hardis deploy, persona users kept current
+    in QA, Playwright regression as personas.
 
-Where people come in is set by risk: plan approval only above low risk, and the PR approval always.
+People step in where they want to or where they're needed. Adding `human:review-wanted` to a PR makes the gate
+wait for a person's approval of the current commit. Agents set `human:approval-required` when a plan is above
+low risk, a requirement is ambiguous, an ADR is needed or the repair limit is reached; the gate never merges
+those.
 
 ## Branches and orgs
 

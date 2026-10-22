@@ -94,14 +94,16 @@ jobs:
           path: cost/
           retention-days: 1
 
-  cost:
-    name: Add review cost to the story
+  verdict:
+    name: Review verdict and cost
     needs: review
     if: always() && needs.review.result != 'skipped'
     runs-on: ubuntu-latest
     permissions:
       contents: read
       issues: write
+      pull-requests: read
+      statuses: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -111,10 +113,36 @@ jobs:
           pattern: cost-*
           path: cost
           merge-multiple: true
-      - env:
+      - name: Add review cost to the story
+        env:
           GH_TOKEN: ${{ github.token }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           TITLE: ${{ github.event.workflow_run.display_title }}
         run: |
           ISSUE=$(printf '%s' "$TITLE" | grep -oE ' · feature/[0-9]+-' | grep -oE '[0-9]+' | head -1)
           node scripts/cost-ledger.mjs --issue "$ISSUE" --run-url "$RUN_URL" cost/*.json
+      # review/agents (required by the merge gate): success only if each reviewer posted "Approve-able" in
+      # this run and none asked for rework.
+      - name: Set review/agents on the PR commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          TITLE: ${{ github.event.workflow_run.display_title }}
+        run: |
+          R=${{ github.repository }}
+          SHA=$(printf '%s' "$TITLE" | grep -oE '[0-9a-f]{40})
+          BRANCH=$(printf '%s' "$TITLE" | grep -oE ' · feature/[A-Za-z0-9._/-]+ · ' | sed -E 's/^ · //; s/ · $//')
+          PR=$(gh api "repos/$R/pulls?state=open&head=${{ github.repository_owner }}:$BRANCH" --jq '.[0].number // empty')
+          [ -n "$PR" ] || { echo "No open PR for $BRANCH"; exit 0; }
+          SINCE=$(gh api "repos/$R/actions/runs/${{ github.run_id }}" --jq .run_started_at)
+          OK=1; MISSING=""
+          for role in reviewer-architecture reviewer-security reviewer-tests; do
+            HEAD=$(gh api --paginate "repos/$R/issues/$PR/comments" --jq ".[] | select(.created_at >= \"$SINCE\") | select(.body | startswith(\"<!-- review:$role -->\")) | .body" | grep -m1 -E "^## " || true)
+            echo "$role: ${HEAD:-no review}"
+            echo "$HEAD" | grep -q "Approve-able" || { OK=0; MISSING="$MISSING ${role#reviewer-}"; }
+          done
+          # All three approve-able in this run: a rework label left from an earlier round is stale.
+          [ $OK = 1 ] && gh api -X DELETE "repos/$R/issues/$PR/labels/agent:rework-required" >/dev/null 2>&1 || true
+          if [ $OK = 1 ]; then S=success; D="All three reviewer agents: approve-able"; else S=failure; D="Changes requested:${MISSING:- rework-required}"; fi
+          gh api "repos/$R/statuses/$SHA" -f state=$S -f context=review/agents -f description="$D" -f target_url="$RUN_URL" >/dev/null
+          echo "review/agents=$S"

@@ -1,4 +1,6 @@
 name: Deploy to QA
+# The merge gate passes the story, so the run counts towards that story's runner minutes.
+run-name: "Deploy to QA${{ inputs.story && format(' · feature/{0}-', inputs.story) || '' }}"
 
 # Every merge to integration deploys to the QA sandbox (our dev org) with sfdx-hardis, then makes QA
 # persona-ready and runs the Playwright regression suite as personas (TST-16, PIPE-11). QA is a shared
@@ -11,6 +13,11 @@ on:
       - "docs/**"
       - "*.md"
   workflow_dispatch:
+    inputs:
+      story:
+        description: Issue number of the story that was merged (set by the merge gate)
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -107,3 +114,23 @@ jobs:
         run: |
           echo "::error::Persona regression failed in QA. A bug must be raised before the next promotion."
           exit 1
+
+  ledger:
+    name: Add runner minutes to the story
+    needs: deploy
+    if: always() && inputs.story != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: integration
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          STORY: ${{ inputs.story }}
+        run: |
+          [[ "$STORY" =~ ^[0-9]+$ ]] || exit 0
+          node scripts/cost-ledger.mjs --issue "$STORY" --refresh

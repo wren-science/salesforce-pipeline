@@ -1,0 +1,40 @@
+name: Merge gate
+
+# Merges story PRs into integration once every check and all three reviewer agents have passed on the
+# PR's current commit, then dispatches the QA deploy. People step in where they want to
+# (human:review-wanted) or where an agent asks (human:approval-required). Rules: scripts/merge-gate.mjs.
+#
+# Runs integration's code only (never the PR's) and holds only this workflow's GITHUB_TOKEN.
+on:
+  workflow_run:
+    workflows: [PR tests, Validate against QA, Agent review]
+    types: [completed]
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: merge-gate
+  cancel-in-progress: false
+
+jobs:
+  gate:
+    name: Merge ready story PRs
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      statuses: read
+      checks: read
+      actions: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: integration
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/merge-gate.mjs
