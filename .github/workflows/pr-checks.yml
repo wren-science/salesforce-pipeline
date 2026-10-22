@@ -23,6 +23,9 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Pipeline scripts parse (node --check)
+        run: for f in scripts/*.mjs .github/scripts/*.mjs; do if [ -f "$f" ]; then node --check "$f"; fi; done
+
       - name: Metadata, NPSP and .github guards (QG-07, DM-03, PIPE-04, PIPE-08)
         run: node scripts/check-metadata.mjs "origin/${{ github.base_ref }}" "${{ github.head_ref }}"
 
