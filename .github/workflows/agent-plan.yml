@@ -13,9 +13,6 @@ permissions:
   issues: write
   id-token: write
 
-concurrency:
-  group: agent-issue-${{ github.event.issue.number }}
-  cancel-in-progress: false
 
 jobs:
   plan:
@@ -23,6 +20,9 @@ jobs:
     runs-on: ubuntu-latest
     environment: agents
     timeout-minutes: 25
+    concurrency:
+      group: agent-plan-${{ github.event.issue.number }}
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
         with:

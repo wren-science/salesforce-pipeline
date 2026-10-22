@@ -138,6 +138,7 @@ jobs:
         uses: anthropics/claude-code-action@05049bd0bcda11738058a1318af29d1ac8d111b4 # v1.0.245
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          allowed_bots: claude
           prompt: |
             You are the repair agent for ${{ github.repository }}. Follow .claude/agents/repair.md and CLAUDE.md.
             PR #${{ needs.gate.outputs.pr }} on branch ${{ github.event.workflow_run.head_branch }} needs repair: ${{ needs.gate.outputs.reason }}.

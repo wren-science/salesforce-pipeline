@@ -12,9 +12,6 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: agent-issue-${{ github.event.issue.number }}
-  cancel-in-progress: false
 
 jobs:
   provision:
@@ -22,6 +19,9 @@ jobs:
     if: github.event.label.name == 'agent:approved' && !github.event.issue.pull_request
     runs-on: ubuntu-latest
     environment: devhub
+    concurrency:
+      group: agent-build-${{ github.event.issue.number }}
+      cancel-in-progress: false
     outputs:
       username: ${{ steps.create.outputs.username }}
     steps:
@@ -114,6 +114,7 @@ jobs:
         uses: anthropics/claude-code-action@05049bd0bcda11738058a1318af29d1ac8d111b4 # v1.0.245
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          allowed_bots: claude
           prompt: |
             You are the test-writer agent for ${{ github.repository }}. Follow .claude/agents/test-writer.md and CLAUDE.md.
             Story: issue #${{ github.event.issue.number }} (read it and its approved plan with
@@ -131,6 +132,7 @@ jobs:
         uses: anthropics/claude-code-action@05049bd0bcda11738058a1318af29d1ac8d111b4 # v1.0.245
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          allowed_bots: claude
           prompt: |
             You are the developer agent for ${{ github.repository }}. Follow .claude/agents/developer.md and CLAUDE.md.
             Story: issue #${{ github.event.issue.number }} (read it and its plan with
