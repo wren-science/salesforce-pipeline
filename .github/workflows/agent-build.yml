@@ -108,7 +108,7 @@ jobs:
             gh api -X DELETE "repos/${{ github.repository }}/actions/artifacts/$id" >/dev/null
           done
           sf project deploy start --source-dir force-app --target-org agent --wait 30 >/dev/null
-          echo "SF_BASE_URL=$(sf org display --target-org agent --json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s.slice(s.indexOf("{"))).result.instanceUrl.replace(".my.salesforce.com",".lightning.force.com")))')" >> "$GITHUB_ENV"
+          echo "SF_BASE_URL=$(node scripts/lightning-url.mjs agent)" >> "$GITHUB_ENV"
 
       - name: Test writer agent
         uses: anthropics/claude-code-action@05049bd0bcda11738058a1318af29d1ac8d111b4 # v1.0.245

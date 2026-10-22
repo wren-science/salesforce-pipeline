@@ -73,7 +73,7 @@ jobs:
         run: |
           npm ci --no-fund --no-audit
           npx playwright install --with-deps chromium
-          export SF_BASE_URL=$(sf org display --target-org qa-admin --json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s.slice(s.indexOf("{"))).result.instanceUrl.replace(".my.salesforce.com",".lightning.force.com")))')
+          export SF_BASE_URL=$(node ../../scripts/lightning-url.mjs qa-admin)
           npx playwright test
 
       - name: Log out of QA

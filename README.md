@@ -1,7 +1,7 @@
 # salesforce-pipeline
 
 A proof of concept for agentic Salesforce delivery. Claude Code agents take a GitHub issue to a QA
-sandbox. sfdx-hardis handles the release mechanics, and people approve three gates on the way. The
+sandbox, every test running as a persona. sfdx-hardis handles the release mechanics; people step in where risk calls for it and approve every PR. The
 worked use case is **student recruitment on Sales Cloud**: enquiries as leads, applications as
 opportunities. Work is tracked as GitHub issues on the [Salesforce Delivery board](https://github.com/orgs/wren-science/projects/1),
 which replaces Jira.
@@ -16,41 +16,29 @@ Production deployment is disabled. Autonomy stops at QA.
 
 ## How a story flows
 
-```
-Issue (story template) ──label agent:plan──▶ Planner posts plan
-        │
-   Gate 1: human adds agent:approved
-        ▼
-Scratch org ──▶ Developer agent ──▶ draft PR ──▶ Validate (sfdx-hardis check deploy, tests, scans)
-                                                   │ fail: repair agent, max 3 tries
-                                                   ▼
-                                     Reviewers: architecture · security · tests
-                                                   │ blocking: rework, max 2 rounds
-                                                   ▼
-                                     Gate 2: human approves PR ──▶ merge to integration
-                                                   ▼
-                                     Release agent: QA promotion PR + evidence pack
-                                                   ▼
-                                     Gate 3: GitHub Environment "qa" approval ──▶ deploy to QA sandbox
-```
-
+An issue (story, personas, acceptance criteria) goes through a planner agent, a test writer and a developer
+in their own scratch org, PR checks, persona tests with evidence, a check-only deploy to QA and three review
+agents. A person approves the PR, and the merge deploys to the QA sandbox and reruns the persona regression.
 Details: [docs/pipeline/architecture.md](docs/pipeline/architecture.md).
 
 ## Branches and environments
 
 | Branch | Environment |
 | --- | --- |
-| `feature/*` | One scratch org per agent task |
-| `integration` (default) | Validated against QA |
-| `qa` | The QA sandbox |
-| `main` | Reserved for production; deployment disabled |
+| `feature/<issue>-<slug>` | Scratch orgs per story (agents, PR tests) |
+| `pipeline/<topic>` | Maintainer changes to the pipeline |
+| `integration` (default) | QA sandbox (dev org), deployed on every merge |
+| `uat`, `preprod`, `main` | Planned (sfdx-hardis promotion PRs) |
 
 ## Where things are
 
 | Path | What |
 | --- | --- |
-| [`docs/standards/`](docs/standards/README.md) | Canonical engineering standards, each with a stable ID that agents cite |
-| [`docs/pipeline/`](docs/pipeline/) | Architecture, gates, handover protocol, sfdx-hardis guide |
+| [`docs/standards/`](docs/standards/README.md) | Solution Design and Build Standards (binding; rule IDs agents cite) |
+| [`docs/pipeline/rules.md`](docs/pipeline/rules.md) | Pipeline rules (PIPE-xx), supplementing the standards |
+| [`config/personas.json`](config/personas.json) | Persona catalogue: every test runs as a persona |
+| [`docs/adr/`](docs/adr/README.md) | Architecture Decision Records |
+| [`docs/pipeline/`](docs/pipeline/) | Architecture, CI, handover protocol, pipeline rules, sfdx-hardis guide |
 | [`docs/use-case/sales-cloud.md`](docs/use-case/sales-cloud.md) | The Sales Cloud scope and demo stories |
 | [`CLAUDE.md`](CLAUDE.md) | Rules every agent session follows |
 | [`.claude/agents/`](.claude/agents/) | Agent role definitions |
@@ -63,12 +51,11 @@ Details: [docs/pipeline/architecture.md](docs/pipeline/architecture.md).
 
 | Phase | State |
 | --- | --- |
-| 0. Bootstrap: project, standards, docs | Done |
-| 1. Pipeline without AI | In progress |
-| 2. Planner and reviewers | Not started |
-| 3. Autonomous development | Not started |
-| 4. Release to QA | Not started |
-| 5. Demo run | Not started |
+| Foundations, standards, personas | Done |
+| PR checks, persona tests with evidence, QA validation | Done |
+| Deploy to QA with persona regression | Done |
+| Agents: planner, test writer, developer, reviewers, repair | Built; first runs in progress |
+| UAT, preprod, production | Planned |
 
 ## Security
 
