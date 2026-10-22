@@ -10,7 +10,8 @@ run-name: "PR tests · ${{ github.event.workflow_run.head_branch }} · ${{ githu
 # Why three jobs on three runners (PIPE-09):
 # - "lease" holds the sandbox's JWT key and runs no PR code. It leases and prepares the sandbox, then hands
 #   over short-lived access tokens only.
-# - "work" runs the PR's code and tests with those tokens, and revokes them when it finishes.
+# - "work" runs the PR's code and tests with those tokens, and forgets them when it finishes (local only; the
+#   tokens expire on their own: revoking would end other jobs' sessions, ADR 0003).
 # - "report" runs trusted code only. It is the one job that can write statuses and comments.
 on:
   workflow_run:
@@ -168,9 +169,9 @@ jobs:
         if: always()
         run: node scripts/cleanup-test-data.mjs --org agent
 
-      - name: Revoke the handed-over sessions
+      - name: Forget the handed-over logins
         if: always()
-        run: node scripts/sandbox-handover.mjs revoke
+        run: node scripts/sandbox-handover.mjs forget
 
       - uses: actions/upload-artifact@v4
         if: always()

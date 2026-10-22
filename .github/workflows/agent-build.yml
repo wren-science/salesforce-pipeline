@@ -203,6 +203,6 @@ jobs:
           node "$T/scripts/cost-ledger.mjs" --issue "${{ github.event.issue.number }}" --run-url "$RUN_URL" "$T"/test-writer.json "$T"/developer.json
           node "$T/scripts/run-facts.mjs" extract developer "${{ steps.developer.outputs.execution_file }}" --self run-report.json --out "$T/facts-developer.json"
           node "$T/scripts/run-facts.mjs" publish --issue "${{ github.event.issue.number }}" --run-url "$RUN_URL" "$T"/facts-test-writer.json "$T"/facts-developer.json
-      - name: Revoke the handed-over sessions
+      - name: Forget the handed-over logins
         if: always()
-        run: node "$RUNNER_TEMP/pipeline/scripts/sandbox-handover.mjs" revoke
+        run: node "$RUNNER_TEMP/pipeline/scripts/sandbox-handover.mjs" forget

@@ -46,6 +46,7 @@ jobs:
       pr: ${{ steps.decide.outputs.pr }}
       branch: ${{ steps.decide.outputs.branch }}
       reason: ${{ steps.decide.outputs.reason }}
+      sha: ${{ steps.decide.outputs.sha }}
     steps:
       - id: decide
         env:
@@ -84,13 +85,18 @@ jobs:
           [ -n "$REASON" ] || exit 0
           # Repair comments since the last budget reset. A person (not a bot) can grant a fresh budget with a
           # comment starting "<!-- agent:repair-reset -->" that says why (docs/pipeline/governance.md).
-          COMMENTS=$(gh api --paginate "repos/$R/issues/$PR/comments" | jq -rs '
+          # Attempts (R <sha>) and void attempts (V <sha>: the agent never ran, e.g. the sandbox lease or
+          # login failed) since the last reset, which only a person can post.
+          MARKS=$(gh api --paginate "repos/$R/issues/$PR/comments" | jq -rs '
             add as $all
             | ([$all | to_entries[] | select(.value.user.type == "User" and (.value.body | startswith("<!-- agent:repair-reset -->"))) | .key] | max // -1) as $reset
-            | $all | to_entries[] | select(.key > $reset) | .value | select(.body | startswith("<!-- agent:repair sha=")) | .body')
-          # One repair per commit: a tests failure and a QA failure on the same commit start one repair.
-          if printf '%s\n' "$COMMENTS" | grep -q "<!-- agent:repair sha=$HEAD_SHA -->"; then echo "Already repairing $HEAD_SHA"; exit 0; fi
-          ATTEMPTS=$(printf '%s\n' "$COMMENTS" | grep -c '^<!-- agent:repair sha=' || true)
+            | $all | to_entries[] | select(.key > $reset) | .value.body
+            | capture("^<!-- agent:repair(?<v>-void)? sha=(?<s>[0-9a-f]{40}) -->")? | "\(if .v then "V" else "R" end) \(.s)"')
+          count() { printf '%s\n' "$MARKS" | grep -c "$1" || true; }
+          # One repair per commit (a tests failure and a QA failure on the same commit start one repair),
+          # unless the last one for it never ran.
+          if [ "$(count "^R $HEAD_SHA")" -gt "$(count "^V $HEAD_SHA")" ]; then echo "Already repairing $HEAD_SHA"; exit 0; fi
+          ATTEMPTS=$(( $(count '^R ') - $(count '^V ') ))
           if [ "$ATTEMPTS" -ge 3 ]; then
             if ! echo ",$LABELS," | grep -q ",human:approval-required,"; then
               gh api "repos/$R/issues/$PR/labels" -f "labels[]=human:approval-required" >/dev/null
@@ -100,7 +106,7 @@ jobs:
           fi
           gh api "repos/$R/issues/$PR/comments" -f body="<!-- agent:repair sha=$HEAD_SHA -->
           Repair attempt $((ATTEMPTS + 1)) of 3 starting: $REASON." >/dev/null
-          { echo "run=true"; echo "pr=$PR"; echo "branch=$BRANCH"; echo "reason=$REASON"; } >> "$GITHUB_OUTPUT"
+          { echo "run=true"; echo "pr=$PR"; echo "branch=$BRANCH"; echo "reason=$REASON"; echo "sha=$HEAD_SHA"; } >> "$GITHUB_OUTPUT"
 
   lease:
     name: Prepare the story's sandbox
@@ -143,6 +149,8 @@ jobs:
 
   repair:
     needs: [gate, lease]
+    outputs:
+      agent_ran: ${{ steps.repair.outcome == 'success' || steps.repair.outcome == 'failure' }}
     concurrency:
       group: sandbox-${{ needs.lease.outputs.sandbox }}
       cancel-in-progress: false
@@ -246,6 +254,26 @@ jobs:
           node "$T/scripts/cost-ledger.mjs" --issue "$ISSUE" --run-url "$RUN_URL" "$T/repair.json"
           node "$T/scripts/run-facts.mjs" extract repair "${{ steps.repair.outputs.execution_file }}" --self run-report.json --out "$T/facts-repair.json"
           node "$T/scripts/run-facts.mjs" publish --issue "$ISSUE" --run-url "$RUN_URL" "$T/facts-repair.json"
-      - name: Revoke the handed-over sessions
+      - name: Forget the handed-over logins
         if: always()
-        run: node "$RUNNER_TEMP/pipeline/scripts/sandbox-handover.mjs" revoke
+        run: node "$RUNNER_TEMP/pipeline/scripts/sandbox-handover.mjs" forget
+
+  # The agent never ran (the sandbox lease, preparation or login failed): this attempt doesn't count, and the
+  # same commit can be repaired again. Infrastructure failures must not use up a story's repair budget.
+  void:
+    name: Void the attempt if the agent never ran
+    needs: [gate, lease, repair]
+    if: always() && needs.gate.outputs.run == 'true' && needs.repair.outputs.agent_ran != 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ needs.gate.outputs.pr }}
+          SHA: ${{ needs.gate.outputs.sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          gh api "repos/${{ github.repository }}/issues/$PR/comments" -f body="<!-- agent:repair-void sha=$SHA -->
+          The repair agent didn't run ([run]($RUN_URL): lease ${{ needs.lease.result }}, repair ${{ needs.repair.result }}). This attempt doesn't count; the next event retries it." >/dev/null

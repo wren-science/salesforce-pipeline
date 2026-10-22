@@ -18,7 +18,7 @@ A pull request can change any file, so PR code never runs next to a shared login
   `force-app/`, `tests/e2e/specs/` and `config/personas.json` from the PR.
 - In `pr-tests.yml`, `agent-build.yml` and `agent-repair.yml`, the pool sandbox's JWT key lives only in the `lease`
   job (environment `sandbox-pool`), on its own runner. The job that runs PR code or an agent gets short-lived access
-  tokens for the admin and each persona, encrypted in transit (`SCRATCH_HANDOFF_KEY`) and revoked at the end. Each
+  tokens for the admin and each persona, encrypted in transit (`SCRATCH_HANDOFF_KEY`), forgotten at the end and left to expire (never revoked: sessions are shared between JWT logins). Each
   pool sandbox has its own certificate (`sandbox-setup/prepare-pool-sandbox.sh`), so no QA or production key opens it.
   Only the trusted `report` job can write statuses and comments.
 - Fork PRs never reach the trusted workflows.
