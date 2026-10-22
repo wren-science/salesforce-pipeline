@@ -150,7 +150,7 @@ jobs:
   repair:
     needs: [gate, lease]
     outputs:
-      agent_ran: ${{ steps.repair.outcome == 'success' || steps.repair.outcome == 'failure' }}
+      agent_ran: ${{ steps.ran.outputs.ran }}
     concurrency:
       group: sandbox-${{ needs.lease.outputs.sandbox }}
       cancel-in-progress: false
@@ -204,7 +204,7 @@ jobs:
           GIT_EDITOR: "true" # `git rebase --continue` without an editor when resolving conflicts
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          allowed_bots: claude
+          allowed_bots: claude,github-actions # the merge gate dispatches conflict repairs with GITHUB_TOKEN
           prompt: |
             You are the repair agent for ${{ github.repository }}. Follow .claude/agents/repair.md and CLAUDE.md.
             PR #${{ needs.gate.outputs.pr }} on branch ${{ needs.gate.outputs.branch }} needs repair: ${{ needs.gate.outputs.reason }}.
@@ -239,6 +239,12 @@ jobs:
             --max-turns 120
             --allowedTools "Read,Grep,Glob,Edit,Write,Bash(node scripts/agent-records.mjs:*),Bash(sf:*),Bash(cd tests/e2e && npx playwright test:*),Bash(npx playwright test:*),Bash(git add:*),Bash(git commit:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git push:*),Bash(git fetch origin integration),Bash(git rebase origin/integration),Bash(git rebase --continue),Bash(git rebase --abort),Bash(gh pr view:*),Bash(gh pr edit:*),Bash(gh run view:*),Bash(gh pr checks:*),Bash(ls:*),Bash(cat:*),Bash(head:*),Bash(tail:*),Bash(find:*),Bash(grep:*),Bash(wc:*),Bash(cd:*),Bash(pwd),Bash(mkdir:*),Bash(jq:*)"
             --disallowedTools "Edit(.github/**),Write(.github/**),Edit(manifest/**),Write(manifest/**),Bash(sf org login:*),Bash(sf org logout:*)"
+      - name: Did the agent run?
+        id: ran
+        if: always()
+        env:
+          EXEC: ${{ steps.repair.outputs.execution_file }}
+        run: if [ -n "$EXEC" ] && [ -s "$EXEC" ]; then echo "ran=true" >> "$GITHUB_OUTPUT"; else echo "ran=false" >> "$GITHUB_OUTPUT"; fi
       - name: Report and cost (repair)
         if: always()
         env:
