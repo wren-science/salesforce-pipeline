@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Program_of_Interest__c</fullName>
+    <deleteConstraint>SetNull</deleteConstraint>
+    <description>The program the prospective student is enquiring about (#5). Lookup to Program__c with an optional filter offering active programs only: a Lead whose program is later deactivated still saves (plan decision 6 on #5). Consumers: Recruitment Officers, #8 conversion, #9 program checks. Business owner: Head of Student Recruitment.</description>
+    <inlineHelpText>The program the enquirer is interested in. Only active programs are offered.</inlineHelpText>
+    <label>Program of Interest</label>
+    <lookupFilter>
+        <active>true</active>
+        <filterItems>
+            <field>Program__c.Active__c</field>
+            <operation>equals</operation>
+            <value>True</value>
+        </filterItems>
+        <infoMessage>Only active programs are shown.</infoMessage>
+        <isOptional>true</isOptional>
+    </lookupFilter>
+    <referenceTo>Program__c</referenceTo>
+    <relationshipLabel>Enquiries</relationshipLabel>
+    <relationshipName>Enquiries</relationshipName>
+    <required>false</required>
+    <securityClassification>Internal</securityClassification>
+    <type>Lookup</type>
+</CustomField>
