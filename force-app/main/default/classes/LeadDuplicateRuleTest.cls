@@ -234,18 +234,18 @@ private class LeadDuplicateRuleTest {
     static void shouldRefuseLeadCreateToMinimumAccessPersona() {
         Lead enquiry = TestDataFactory.buildLeads(1, 'Deny')[0];
         enquiry.Email = existingLead().Email;
-        Boolean refused = false;
+        Database.SaveResult result;
         System.runAs(TestPersonaFactory.get(TestPersonas.MINIMUM_ACCESS)) {
-            try {
-                List<Database.SaveResult> results = insertLeads(new List<Lead>{ enquiry }, false);
-                Assert.fail('A persona with no Lead access was given a save result: ' + results[0].getErrors());
-            } catch (System.SecurityException e) {
-                // User mode reports a missing object permission as "Access to entity 'Lead' denied" (as on #5).
-                Assert.isTrue(e.getMessage().contains('Access to entity \'Lead\' denied'), 'Refused for missing Lead access: ' + e.getMessage());
-                refused = true;
-            }
+            // With partial success (optAllOrNone = false), user mode reports the missing object permission in the
+            // save result rather than throwing (confirmed in the sandbox, .agent/6/diagnostics/denial-save-result.md).
+            result = insertLeads(new List<Lead>{ enquiry }, false)[0];
         }
-        Assert.isTrue(refused, 'A persona with no Lead access must not create Leads or see their duplicates');
+        Assert.isFalse(result.isSuccess(), 'A persona with no Lead access must not create Leads');
+        Assert.areEqual(1, result.getErrors().size(), 'Refused with one error only: ' + result.getErrors());
+        Database.Error error = result.getErrors()[0];
+        Assert.areEqual(StatusCode.CANNOT_INSERT_UPDATE_ACTIVATE_ENTITY, error.getStatusCode(), 'Refused for missing access: ' + error);
+        Assert.isTrue(error.getMessage().contains('Access to entity \'Lead\' denied'), 'Refused for missing Lead access: ' + error.getMessage());
+        Assert.isFalse(error instanceof Database.DuplicateError, 'No duplicate result, so no matching record, is returned to it');
         Assert.areEqual(0, [SELECT COUNT() FROM Lead WHERE LastName = 'Deny-0' WITH SYSTEM_MODE], 'No Lead was saved');
     }
 

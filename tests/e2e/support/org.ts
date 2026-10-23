@@ -11,6 +11,8 @@ import { tmpdir } from 'node:os';
 // Output is never logged: errors carry the CLI message only, with any URL removed (QG-08, PIPE-14).
 const root = join(__dirname, '..', '..', '..');
 const scrub = (s: string) => s.replace(/https?:\/\/\S+/g, '<url removed>');
+// The REST API version restAs calls: the org's current version.
+const API_VERSION = '68.0';
 
 function sf<T = any>(...args: string[]): T {
   const org = process.env.SF_DATA_ORG ? ['--target-org', process.env.SF_DATA_ORG] : [];
@@ -78,9 +80,10 @@ export function searchIdsAs(personaKey: string, sosl: string): string[] {
 /**
  * Makes one REST API call as the persona and returns the HTTP status and parsed body, including error responses,
  * so a test can assert on a refusal (for example DUPLICATES_DETECTED) and send request headers such as
- * Sforce-Duplicate-Rule-Header. Uses Node fetch, outside the browser, so the session token is held in memory
- * only: never logged, never put in an error and never in a Playwright trace (QG-08, PIPE-14). `path` is relative
- * to /services/data/vNN.0/, for example 'sobjects/Lead'.
+ * Sforce-Duplicate-Rule-Header. Goes through `sf api request rest`, so the CLI authenticates and refreshes the
+ * persona's session itself: no token ever reaches this code, a log or a Playwright trace (QG-08, PIPE-14). (Calling
+ * fetch with the token from `sf org display` got a 401 for the persona's JWT login.) `path` is relative to
+ * /services/data/vNN.0/, for example 'sobjects/Lead'.
  */
 export async function restAs(
   personaKey: string,
@@ -89,14 +92,29 @@ export async function restAs(
   body?: Record<string, unknown>,
   headers: Record<string, string> = {},
 ): Promise<{ status: number; body: any }> {
-  const org = sfAs<{ accessToken: string; instanceUrl: string; apiVersion: string }>(personaOrg(personaKey), 'org', 'display');
-  const res = await fetch(`${org.instanceUrl}/services/data/v${org.apiVersion}/${path}`, {
-    method,
-    headers: { Authorization: `Bearer ${org.accessToken}`, 'Content-Type': 'application/json', Accept: 'application/json', ...headers },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
-  const text = await res.text();
-  return { status: res.status, body: text ? JSON.parse(text) : null };
+  const args = ['api', 'request', 'rest', `services/data/v${API_VERSION}/${path}`, '--method', method, '--include'];
+  args.push('--body', body === undefined ? '' : JSON.stringify(body));
+  for (const [k, v] of Object.entries({ 'Content-Type': 'application/json', Accept: 'application/json', ...headers })) {
+    args.push('--header', `${k}:${v}`);
+  }
+  let out: string;
+  try {
+    out = execFileSync('sf', [...args, ...personaOrg(personaKey)], {
+      cwd: root,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env: { ...process.env, FORCE_COLOR: '0', NO_COLOR: '1', SF_DISABLE_COLORS: 'true' },
+    });
+  } catch (e) {
+    // The CLI exits non-zero on a 4xx/5xx response but still prints it; that response is what the test asserts.
+    out = String((e as { stdout?: string }).stdout ?? '');
+  }
+  // --include prints the status line, then the response headers, then the JSON body.
+  const status = /^HTTP\/[\d.]+ (\d{3})/m.exec(out);
+  if (!status) throw new Error(`sf api request rest ${method} ${path} failed: no HTTP response`);
+  const lines = out.slice(status.index).split('\n');
+  const start = lines.findIndex((l) => l.startsWith('{') || l.startsWith('['));
+  return { status: Number(status[1]), body: start < 0 ? null : JSON.parse(lines.slice(start).join('\n')) };
 }
 
 function personaOrg(personaKey: string): string[] {

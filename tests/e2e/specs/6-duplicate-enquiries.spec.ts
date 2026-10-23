@@ -37,11 +37,14 @@ async function fillNewLead(dialog: Locator, v: { first?: string; last: string; e
   if (v.mobile) await dialog.getByRole('textbox', { name: 'Mobile' }).fill(v.mobile);
 }
 
-// Saves the New Lead form and expects this rule's alert in the form, then opens "View Duplicates" and expects
-// the matching record to be listed by name.
+// Saves the New Lead form and expects the duplicate alert in the form, then opens "View Duplicates" and expects
+// the matching record to be listed by name. Lightning Experience shows the platform's own "Similar Records Exist"
+// alert, not a duplicate rule's alert text; the rule's text (ALERT_TEXT) reaches API and Apex callers, and is
+// asserted there (AC4 below, LeadDuplicateRuleTest).
 async function expectDuplicateAlertListing(page: Page, dialog: Locator, matchName: string) {
   await dialog.getByRole('button', { name: 'Save', exact: true }).click();
-  await expect(dialog.getByText(ALERT_TEXT)).toBeVisible();
+  await expect(page.getByRole('dialog', { name: 'Similar Records Exist' })).toBeVisible();
+  await expect(page.getByRole('dialog', { name: 'Similar Records Exist' })).toContainText('looks like an existing record');
   const viewDuplicates = dialog.getByRole('link', { name: /View Duplicates/i }).or(dialog.getByRole('button', { name: /View Duplicates/i }));
   await viewDuplicates.first().click();
   const listed = page.getByRole('dialog').getByRole('link', { name: matchName, exact: true }).or(page.getByRole('dialog').getByText(matchName, { exact: true }));
@@ -96,6 +99,7 @@ test.describe('#6 Duplicate enquiries: Recruitment Officer', () => {
     await page.waitForURL(/\/lightning\/r\/(Lead\/)?\w{15,18}\/view/);
     await expect(page.getByRole('heading', { name: new RegExp(name) }).first()).toBeVisible();
     await expect(page.getByText(ALERT_TEXT)).toHaveCount(0);
+    await expect(page.getByRole('dialog', { name: 'Similar Records Exist' })).toHaveCount(0);
   });
 
   test('#6 AC4: a Lead created through the REST API with an existing email is reported as a duplicate', async ({ page }) => {
@@ -108,6 +112,8 @@ test.describe('#6 Duplicate enquiries: Recruitment Officer', () => {
     const error = refused.body[0];
     expect(error.errorCode).toBe('DUPLICATES_DETECTED');
     expect(error.duplicateResult.duplicateRule).toBe(DUPLICATE_RULE);
+    // API callers get the rule's own alert text (Lightning shows the platform's standard one instead).
+    expect(error.message).toBe(ALERT_TEXT);
     const matched = error.duplicateResult.matchResults.flatMap((m: any) => m.matchRecords.map((r: any) => r.record.Id));
     expect(matched).toContain(existingId);
 
