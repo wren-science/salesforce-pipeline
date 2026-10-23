@@ -1,10 +1,10 @@
 {
   "version": 2,
   "issue": 6,
-  "stage": "tests-written",
-  "role": "test-writer",
-  "summary": "Tests first for standard Duplicate Management on Lead (plan approved). LeadDuplicateRuleTest runs every insert as the Recruitment Officer in user mode with the duplicate rule run as that user, and asserts this story's rule Prospective_Student_Lead_Duplicate by name, its alert text, Allow on save and the listed match. The Playwright spec has one test per AC as the persona; AC4 uses a new restAs helper. TestDataFactory gains buildContacts. All are expected to fail until the developer builds.",
-  "standards": ["DES-01", "DES-02", "DES-05", "APX-21", "APX-22", "APX-57", "TST-01", "TST-03", "TST-04", "TST-05", "TST-06", "TST-12", "TST-16", "TST-17", "TST-18", "SHR-15", "PIPE-11", "PIPE-12", "PIPE-14", "PIPE-15", "QG-08"],
+  "stage": "review-required",
+  "role": "developer",
+  "summary": "Built with standard Duplicate Management, no code (DES-02). Lead matching rule (Email, or First Name + Last Name + Mobile, exact, blanks don't match), Contact matching rule (Email exact), and the Lead duplicate rule Prospective_Student_Lead_Duplicate (create: Allow + Alert; edit: Allow; bypass sharing). Persona_Recruitment_Officer gets edit Lead.Email/MobilePhone and read Contact.Email. Mobile and Potential Duplicates on the Lead pages. All 51 Apex and 19 Playwright tests pass in the sandbox.",
+  "standards": ["DES-01", "DES-02", "DES-03", "DES-05", "DES-09", "DES-11", "DES-12", "SHR-02", "SHR-04", "LDV-01", "DM-12", "APX-21", "APX-22", "APX-57", "TST-01", "TST-03", "TST-04", "TST-16", "TST-17", "SHR-15", "PIPE-04", "PIPE-11", "PIPE-14", "PIPE-15", "QG-08"],
   "adrs": [],
   "tests": {
     "apex": ["LeadDuplicateRuleTest"],
@@ -13,36 +13,53 @@
   "acceptanceCriteria": [
     {
       "id": "AC1",
-      "status": "not-built",
+      "status": "passed",
       "evidence": "LeadDuplicateRuleTest.shouldFlagNewLeadWithSameEmailAsExistingLead, shouldFlagNewLeadWithSameEmailAsExistingContact; Playwright '#6 AC1: a new Lead with an existing Lead's email shows the duplicate alert listing that Lead' and '#6 AC1: a new Lead with an existing Contact's email shows the duplicate alert listing that Contact'"
     },
     {
       "id": "AC2",
-      "status": "not-built",
+      "status": "passed",
       "evidence": "LeadDuplicateRuleTest.shouldFlagNewLeadWithSameNameAndMobileAsExistingLead, shouldNotFlagSameNameWithDifferentMobile; Playwright '#6 AC2: a new Lead with the same first name, last name and mobile as an existing Lead shows the alert'"
     },
     {
       "id": "AC3",
-      "status": "not-built",
+      "status": "passed",
       "evidence": "LeadDuplicateRuleTest.shouldSaveLeadWithDifferentEmailAndMobileWithoutAlert, shouldNotMatchLeadsWithBlankEmailAndMobile, shouldSave200DistinctLeadsAndFlag200Duplicates (bulk); Playwright '#6 AC3: a new Lead with a different email and mobile saves with no duplicate alert'"
     },
     {
       "id": "AC4",
-      "status": "not-built",
-      "evidence": "LeadDuplicateRuleTest.shouldRejectApiStyleInsertUnlessAllowSaveIsSet, shouldAllowEditOfSavedDuplicateWithoutAlert; Playwright '#6 AC4: a Lead created through the REST API with an existing email is reported as a duplicate' (400 DUPLICATES_DETECTED, then 201 with Sforce-Duplicate-Rule-Header allowSave=true). Denial and access: shouldRefuseLeadCreateToMinimumAccessPersona, shouldGrantEmailAndMobileThroughPermissionSetNotProfile"
+      "status": "passed",
+      "evidence": "LeadDuplicateRuleTest.shouldRejectApiStyleInsertUnlessAllowSaveIsSet, shouldAllowEditOfSavedDuplicateWithoutAlert; Playwright '#6 AC4: a Lead created through the REST API with an existing email is reported as a duplicate' (400 DUPLICATES_DETECTED with the rule's name and alert text, then 201 with allowSave=true). Denial and access: shouldRefuseLeadCreateToMinimumAccessPersona, shouldGrantEmailAndMobileThroughPermissionSetNotProfile"
     }
   ],
-  "testChanges": [],
+  "testChanges": [
+    {
+      "test": "LeadDuplicateRuleTest.shouldRefuseLeadCreateToMinimumAccessPersona",
+      "change": "Asserts a failed SaveResult (CANNOT_INSERT_UPDATE_ACTIVATE_ENTITY, \"Access to entity 'Lead' denied\") instead of a thrown SecurityException: with optAllOrNone=false, user mode reports it per row (.agent/6/diagnostics/denial-save-result.md).",
+      "whyNotWeaker": "Still requires the refusal, its access-denied message and no saved Lead; now also requires exactly one error, the exact status code, and that no DuplicateError (so no matching record) reaches the persona."
+    },
+    {
+      "test": "6-duplicate-enquiries.spec.ts expectDuplicateAlertListing (AC1 x2, AC2)",
+      "change": "Expects Lightning's 'Similar Records Exist' alert dialog instead of the rule's alertText, which Lightning Experience never displays (.agent/6/diagnostics/ui-alert-and-rest.md).",
+      "whyNotWeaker": "View Duplicates must still list the matching Lead or Contact by name, and no other Lead duplicate rule is active. The rule's own text is now asserted in AC4's API error, as well as in the Apex tests."
+    },
+    {
+      "test": "6-duplicate-enquiries.spec.ts '#6 AC3' and '#6 AC4'",
+      "change": "AC3 also asserts no 'Similar Records Exist' dialog; AC4 also asserts the API error message equals the rule's alert text.",
+      "whyNotWeaker": "Assertions added only; nothing removed."
+    },
+    {
+      "test": "tests/e2e/support/org.ts restAs",
+      "change": "Calls `sf api request rest --include` as the persona instead of fetch with the token from `sf org display`, which got 401.",
+      "whyNotWeaker": "Same persona, same request, headers and returned status/body; the CLI now handles authentication, so no token reaches test code (QG-08)."
+    }
+  ],
   "findings": [],
   "openQuestions": [
     {
-      "question": "Developer, please confirm in the sandbox: (1) the duplicate rule's alert text is exactly the plan's 'This person may already be in the system. Check the matching records before you contact them.', which both test files assert; (2) the Minimum Access denial is SecurityException \"Access to entity 'Lead' denied\" with the DMLOptions insert overload; (3) with Bypass sharing rules a Contact the officer cannot open is still listed in getMatchRecords and in View Duplicates. Adjust only with a testChanges entry.",
-      "owner": "pipeline"
-    },
-    {
-      "question": "The UI tests assume Lightning keeps the New Lead form open with the alert text and a 'View Duplicates' link or button after the first Save, and lists matches by full name ('Mai E2E-…'). If the live markup differs, fix the locators, not the assertions.",
+      "question": "User mode throws SecurityException for a missing object permission on an all-or-none insert (#5's tests) but returns a row error with partial success (#6). Worth a line in the testing standard so test writers expect the right one.",
       "owner": "pipeline"
     }
   ],
-  "next": "developer"
+  "next": "reviewers"
 }
