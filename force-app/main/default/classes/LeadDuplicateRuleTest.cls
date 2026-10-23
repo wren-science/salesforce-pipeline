@@ -75,7 +75,9 @@ private class LeadDuplicateRuleTest {
         Datacloud.DuplicateResult duplicate = ruleResult(result);
         Assert.isNotNull(duplicate, 'The Prospective Student rule flags the Lead: ' + result.getErrors());
         Assert.areEqual(ALERT_TEXT, duplicate.getErrorMessage(), 'The alert is the plan\'s plain-language text');
-        // The Contact is owned by the setup user; Bypass sharing rules (plan decision 2) lists it anyway.
+        // The Contact is owned by the setup user. Contact OWD is Public Read/Write here, so the officer can read it
+        // and it is listed. Bypass sharing rules (plan decision 2) only reports a match; it grants no access to
+        // records the officer can't see (.agent/6/diagnostics/person-accounts-and-sharing.md).
         Assert.areEqual(new Set<Id>{ student.Id }, matchedIds(duplicate, Contact.SObjectType), 'The alert lists the existing Contact');
         Assert.isTrue(matchedIds(duplicate, Lead.SObjectType).isEmpty(), 'No Lead shares this email');
     }

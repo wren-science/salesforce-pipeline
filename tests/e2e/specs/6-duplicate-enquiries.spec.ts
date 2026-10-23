@@ -1,6 +1,6 @@
 import { test, expect, AppNav } from '../support/evidence';
 import type { Locator, Page } from '@playwright/test';
-import { createRecordAs, restAs, runApex } from '../support/org';
+import { createRecordAs, query, restAs, runApex } from '../support/org';
 
 // Issue #6: prevent duplicate prospective students. Runs as the Recruitment Officer, who creates enquiries (Leads)
 // and holds Lead Email and Mobile through its Recruitment_Officer permission set group (DES-01, TST-17).
@@ -18,7 +18,7 @@ const email = (ac: string) => `e2e-${runId.toLowerCase()}-${ac.toLowerCase()}@ex
 const EXISTING_MOBILE = '0491 570 156';
 const NEW_MOBILE = '0491 570 158';
 const DUPLICATE_RULE = 'Prospective_Student_Lead_Duplicate';
-// The plan's alert text, which tells this rule's alert apart from any other active Lead rule in the org.
+// The plan's alert text, which API callers get in the DUPLICATES_DETECTED error (AC4).
 const ALERT_TEXT = 'This person may already be in the system. Check the matching records before you contact them.';
 
 // The New Lead form takes its fields from the Recruitment app's Lead pages, so open it from that app.
@@ -57,6 +57,10 @@ test.describe('#6 Duplicate enquiries: Recruitment Officer', () => {
   test.beforeAll(async ({}, testInfo) => {
     test.skip(testInfo.project.name !== 'recruitment-officer', 'Enquiries are created by the Recruitment Officer');
     persona = testInfo.project.name;
+    // Lightning's "Similar Records Exist" alert doesn't name the rule, so the UI tests prove this rule fired only
+    // while it is the org's one active Lead duplicate rule. Fail loudly if another one is activated.
+    const active = query<{ DeveloperName: string }>("SELECT DeveloperName FROM DuplicateRule WHERE SobjectType = 'Lead' AND IsActive = true");
+    expect(active.map((r) => r.DeveloperName)).toEqual([DUPLICATE_RULE]);
   });
 
   test("#6 AC1: a new Lead with an existing Lead's email shows the duplicate alert listing that Lead", async ({ app, page }) => {
@@ -75,7 +79,7 @@ test.describe('#6 Duplicate enquiries: Recruitment Officer', () => {
 
     const dialog = await openNewLeadInRecruitmentApp(app, page);
     await fillNewLead(dialog, { first: 'Hoa', last: lastName('AC1-FromContact'), email: email('AC1-contact') });
-    // The Contact is not the officer's; Bypass sharing rules (plan decision 2) still lists the match.
+    // The Contact is not the officer's, but Contact OWD is Public Read/Write, so the officer can read it and it is listed.
     await expectDuplicateAlertListing(page, dialog, `Tuan ${existing}`);
   });
 
@@ -98,7 +102,6 @@ test.describe('#6 Duplicate enquiries: Recruitment Officer', () => {
     // An alert would keep the form open; reaching the saved record page proves the save went straight through.
     await page.waitForURL(/\/lightning\/r\/(Lead\/)?\w{15,18}\/view/);
     await expect(page.getByRole('heading', { name: new RegExp(name) }).first()).toBeVisible();
-    await expect(page.getByText(ALERT_TEXT)).toHaveCount(0);
     await expect(page.getByRole('dialog', { name: 'Similar Records Exist' })).toHaveCount(0);
   });
 

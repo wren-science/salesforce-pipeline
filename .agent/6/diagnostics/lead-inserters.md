@@ -16,3 +16,7 @@
   (FirstName fuzzy + LastName + an NPSP custom email field), not an exact `Email` rule, so DES-09 reuse doesn't apply.
 
 Conclusion: nothing in the sandbox inserts Leads, so decision 1 stands and the build proceeds.
+
+Added after review (arch-2): no Experience Cloud site's guest, customer or partner user can create Leads. Whether
+Web-to-Lead is on can't be read through the API, so it must be confirmed before release
+(`person-accounts-and-sharing.md`).
