@@ -1,9 +1,9 @@
 {
   "version": 2,
   "issue": 5,
-  "stage": "blocked",
+  "stage": "review-required",
   "role": "repair",
-  "summary": "Repair 1 fixed arch-1 (field tokens, APX-57), arch-2 (Lead_Source_Detail__c off the Persona Base layout), arch-3 (FlexiPage description) and tests-1 (AC2 first proves via persona SOSL that the inactive Program is indexed). Apex 39/39 and Playwright 14/14 pass in the sandbox. Blocked on sec-1: Lead internal OWD is Public Read/Write/Transfer (external Private), so Confidential Citizenship_Status__c breaches SHR-01. Reclassifying the field, an OWD change ADR (SHR-02) or a MUST exception is a person's decision.",
+  "summary": "Repair 2 applies the person's decision on #5 for sec-1 (SHR-01): Citizenship_Status__c is classified Internal with no compliance group, and its description and help text say it is a Domestic/International fee and routing category that must not hold nationality, country of citizenship, citizenship documents or visa details. Lead OWD and access are unchanged. The sandbox reports SecurityClassification Internal, ComplianceGroup null; Apex 39/39 and Playwright 14/14 pass. Repair 1 had already fixed arch-1, arch-2, arch-3 and tests-1.",
   "standards": ["DES-01", "DES-02", "DES-04", "DES-05", "DES-09", "DES-11", "DM-02", "DM-03", "DM-05", "DM-06", "DM-08", "DM-12", "SHR-01", "SHR-02", "SHR-03", "SHR-15", "APX-21", "APX-22", "APX-57", "APX-58", "TST-01", "TST-03", "TST-05", "TST-16", "TST-17", "TST-18", "PIPE-04", "PIPE-11", "PIPE-15"],
   "adrs": ["docs/adr/0002-program-custom-object.md"],
   "tests": {
@@ -69,13 +69,9 @@
     { "id": "arch-2", "status": "fixed", "note": "Lead_Source_Detail__c removed from Lead-Persona Lead Layout; it stays on the Recruitment Dynamic Forms page. No test used it on the base form; Playwright 14/14 pass." },
     { "id": "arch-3", "status": "fixed", "note": "FlexiPage description now says it is the Recruitment app default, not assigned by profile, and that Persona Base carries only a minimal standard-field Lead layout (accepted decision on #5)." },
     { "id": "tests-1", "status": "fixed", "note": "AC2 first proves through a persona SOSL search (new searchIdsAs helper) that the inactive Program is indexed, then asserts the lookup's Search Results leave it out." },
-    { "id": "sec-1", "status": "disputed", "note": "Not fixed and not disputed in substance: the finding is right. Lead internal OWD is ReadWriteTransfer, external Private (.agent/5/diagnostics/repair-1-lead-owd.txt), so SHR-01 is breached. The fix is a person's decision (governance.md), so the story is blocked with human:approval-required." }
+    { "id": "sec-1", "status": "fixed", "note": "Applied wrenscience's recorded decision on #5: securityClassification Internal, complianceGroup PII removed, description and inlineHelpText say the field is a Domestic/International fee and routing category only and must not hold nationality, country of citizenship, citizenship documents or visa details. Lead OWD unchanged. Sandbox FieldDefinition: Internal, ComplianceGroup null." },
+    { "id": "arch-4", "status": "fixed", "note": "PR description updated: the Persona Base layout holds standard fields only (accepted decision on #5 cited), and Citizenship_Status__c is Internal per the sec-1 decision on #5, with the reason (a two-value fee and routing category, not nationality)." }
   ],
-  "openQuestions": [
-    {
-      "question": "SHR-01 (sec-1): Lead's internal OWD is Public Read/Write/Transfer, so the Confidential (PII) Citizenship_Status__c field breaches SHR-01. Choose one: reclassify the field (e.g. Internal) with a recorded acceptance; ask for an ADR to make Lead internal OWD Private with a recalculation plan and group sharing rules (SHR-02, SHR-03); or accept a MUST exception through an ADR.",
-      "owner": "person"
-    }
-  ],
-  "next": "person"
+  "openQuestions": [],
+  "next": "reviewers"
 }
