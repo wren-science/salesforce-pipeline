@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<MatchingRules xmlns="http://soap.sforce.com/2006/04/metadata">
+    <matchingRules>
+        <fullName>Prospective_Student_Contact_Match</fullName>
+        <description>Issue #6: a prospective student enquiry matches an existing Contact with the same Email (exact; blank emails never match). Used by the Lead duplicate rule Prospective_Student_Lead_Duplicate (DES-02). Standard Email only, no NPSP fields (PIPE-04).</description>
+        <label>Prospective Student Contact Match</label>
+        <matchingRuleItems>
+            <blankValueBehavior>NullNotAllowed</blankValueBehavior>
+            <fieldName>Email</fieldName>
+            <matchingMethod>Exact</matchingMethod>
+        </matchingRuleItems>
+        <ruleStatus>Active</ruleStatus>
+    </matchingRules>
+</MatchingRules>

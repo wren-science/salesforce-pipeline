@@ -1,0 +1,80 @@
+{
+  "version": 2,
+  "issue": 6,
+  "stage": "review-required",
+  "role": "repair",
+  "summary": "Built with standard Duplicate Management, no code (DES-02). Lead matching rule (Email, or First Name + Last Name + Mobile, exact, blanks don't match), Contact matching rule (Email exact), and the Lead duplicate rule Prospective_Student_Lead_Duplicate (create: Allow + Alert; edit: Allow; bypass sharing). Persona_Recruitment_Officer gets edit Lead.Email/MobilePhone and read Contact.Email. Mobile and Potential Duplicates on the Lead pages. All 51 Apex and 19 Playwright tests pass in the sandbox.",
+  "standards": ["DES-01", "DES-02", "DES-03", "DES-05", "DES-09", "DES-11", "DES-12", "SHR-02", "SHR-04", "LDV-01", "DM-12", "APX-21", "APX-22", "APX-57", "TST-01", "TST-03", "TST-04", "TST-16", "TST-17", "SHR-15", "PIPE-04", "PIPE-11", "PIPE-14", "PIPE-15", "QG-08"],
+  "adrs": [],
+  "tests": {
+    "apex": ["LeadDuplicateRuleTest"],
+    "playwright": ["tests/e2e/specs/6-duplicate-enquiries.spec.ts"]
+  },
+  "acceptanceCriteria": [
+    {
+      "id": "AC1",
+      "status": "passed",
+      "evidence": "LeadDuplicateRuleTest.shouldFlagNewLeadWithSameEmailAsExistingLead, shouldFlagNewLeadWithSameEmailAsExistingContact; Playwright '#6 AC1: a new Lead with an existing Lead's email shows the duplicate alert listing that Lead' and '#6 AC1: a new Lead with an existing Contact's email shows the duplicate alert listing that Contact'"
+    },
+    {
+      "id": "AC2",
+      "status": "passed",
+      "evidence": "LeadDuplicateRuleTest.shouldFlagNewLeadWithSameNameAndMobileAsExistingLead, shouldNotFlagSameNameWithDifferentMobile; Playwright '#6 AC2: a new Lead with the same first name, last name and mobile as an existing Lead shows the alert'"
+    },
+    {
+      "id": "AC3",
+      "status": "passed",
+      "evidence": "LeadDuplicateRuleTest.shouldSaveLeadWithDifferentEmailAndMobileWithoutAlert, shouldNotMatchLeadsWithBlankEmailAndMobile, shouldSave200DistinctLeadsAndFlag200Duplicates (bulk); Playwright '#6 AC3: a new Lead with a different email and mobile saves with no duplicate alert'"
+    },
+    {
+      "id": "AC4",
+      "status": "passed",
+      "evidence": "LeadDuplicateRuleTest.shouldRejectApiStyleInsertUnlessAllowSaveIsSet, shouldAllowEditOfSavedDuplicateWithoutAlert; Playwright '#6 AC4: a Lead created through the REST API with an existing email is reported as a duplicate' (400 DUPLICATES_DETECTED with the rule's name and alert text, then 201 with allowSave=true). Denial and access: shouldRefuseLeadCreateToMinimumAccessPersona, shouldGrantEmailAndMobileThroughPermissionSetNotProfile"
+    }
+  ],
+  "testChanges": [
+    {
+      "test": "LeadDuplicateRuleTest.shouldRefuseLeadCreateToMinimumAccessPersona",
+      "change": "Asserts a failed SaveResult (CANNOT_INSERT_UPDATE_ACTIVATE_ENTITY, \"Access to entity 'Lead' denied\") instead of a thrown SecurityException: with optAllOrNone=false, user mode reports it per row (.agent/6/diagnostics/denial-save-result.md).",
+      "whyNotWeaker": "Still requires the refusal, its access-denied message and no saved Lead; now also requires exactly one error, the exact status code, and that no DuplicateError (so no matching record) reaches the persona."
+    },
+    {
+      "test": "6-duplicate-enquiries.spec.ts expectDuplicateAlertListing (AC1 x2, AC2)",
+      "change": "Expects Lightning's 'Similar Records Exist' alert dialog instead of the rule's alertText, which Lightning Experience never displays (.agent/6/diagnostics/ui-alert-and-rest.md).",
+      "whyNotWeaker": "View Duplicates must still list the matching Lead or Contact by name, and no other Lead duplicate rule is active. The rule's own text is now asserted in AC4's API error, as well as in the Apex tests."
+    },
+    {
+      "test": "6-duplicate-enquiries.spec.ts '#6 AC3' and '#6 AC4'",
+      "change": "AC3 also asserts no 'Similar Records Exist' dialog; AC4 also asserts the API error message equals the rule's alert text.",
+      "whyNotWeaker": "Assertions added only; nothing removed."
+    },
+    {
+      "test": "tests/e2e/support/org.ts restAs",
+      "change": "Calls `sf api request rest --include` as the persona instead of fetch with the token from `sf org display`, which got 401.",
+      "whyNotWeaker": "Same persona, same request, headers and returned status/body; the CLI now handles authentication, so no token reaches test code (QG-08)."
+    },
+    {
+      "test": "6-duplicate-enquiries.spec.ts beforeAll and '#6 AC3' (repair, tests-1)",
+      "change": "beforeAll now asserts Prospective_Student_Lead_Duplicate is the only active Lead duplicate rule. AC3 drops getByText(ALERT_TEXT).toHaveCount(0), which Lightning never shows, so it could never fail.",
+      "whyNotWeaker": "The dropped check could never fail; AC3 still requires no 'Similar Records Exist' dialog and the saved record page. The guard makes AC1/AC2's generic alert specific to this rule."
+    }
+  ],
+  "findings": [
+    { "id": "arch-1", "status": "fixed", "note": "Checked read-only: Person Accounts are not enabled (Account.IsPersonAccount and RecordType.IsPersonType don't exist; record types are HH_Account and Organization). Students are NPSP household Contacts, which the Contact rule matches (AC1 Contact tests). No person account to test; recorded in .agent/6/diagnostics/person-accounts-and-sharing.md." },
+    { "id": "arch-2", "status": "fixed", "note": "No guest, customer or partner user can create Leads, so no Experience Cloud site does. Whether Web-to-Lead is on isn't exposed through the API; the release must confirm it in production (release note below). Added to lead-inserters.md." },
+    { "id": "arch-3", "status": "fixed", "note": "Release note for QA and production: deploy the matching rules first, wait until Setup shows them Active (match keys built for ~1.33M Contacts), then deploy the duplicate rule in a separate CI deploy. A person running the release decides; no agent retries there (PIPE-03)." },
+    { "id": "sec-1", "status": "fixed", "note": "Contact internal OWD is Public Read/Write (recorded in diagnostics), so no Contact can be hidden from the officer and the hidden-Contact test can't be built in this org. Comments at LeadDuplicateRuleTest:78 and the #6 spec corrected to match decision 2. If Contact OWD becomes Private, that test must be added." },
+    { "id": "tests-1", "status": "fixed", "note": "beforeAll asserts the only active Lead duplicate rule is Prospective_Student_Lead_Duplicate; the never-failing AC3 ALERT_TEXT check is removed." }
+  ],
+  "openQuestions": [
+    {
+      "question": "10-large-data-volumes.md §2 calls Contact 'all person-account contacts', but Person Accounts aren't enabled in the org; students are NPSP household Contacts. The standard's wording should be corrected.",
+      "owner": "pipeline"
+    },
+    {
+      "question": "User mode throws SecurityException for a missing object permission on an all-or-none insert (#5's tests) but returns a row error with partial success (#6). Worth a line in the testing standard so test writers expect the right one.",
+      "owner": "pipeline"
+    }
+  ],
+  "next": "reviewers; release must deploy matching rules before the duplicate rule (arch-3) and confirm Web-to-Lead is off in production (arch-2)"
+}
