@@ -1,5 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CustomApplication xmlns="http://soap.sforce.com/2006/04/metadata">
+    <actionOverrides>
+        <actionName>View</actionName>
+        <comment>Recruitment Lead page with the Enquiry details section (#5, plan decision 4).</comment>
+        <content>Lead_Recruitment_Record_Page</content>
+        <formFactor>Large</formFactor>
+        <skipRecordTypeSelect>false</skipRecordTypeSelect>
+        <type>Flexipage</type>
+        <pageOrSobjectType>Lead</pageOrSobjectType>
+    </actionOverrides>
     <brand>
         <headerColor>#14213D</headerColor>
         <shouldOverrideOrgTheme>false</shouldOverrideOrgTheme>

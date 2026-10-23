@@ -1,0 +1,77 @@
+{
+  "version": 2,
+  "issue": 5,
+  "stage": "review-required",
+  "role": "repair",
+  "summary": "Repair 2 applies the person's decision on #5 for sec-1 (SHR-01): Citizenship_Status__c is classified Internal with no compliance group, and its description and help text say it is a Domestic/International fee and routing category that must not hold nationality, country of citizenship, citizenship documents or visa details. Lead OWD and access are unchanged. The sandbox reports SecurityClassification Internal, ComplianceGroup null; Apex 39/39 and Playwright 14/14 pass. Repair 1 had already fixed arch-1, arch-2, arch-3 and tests-1.",
+  "standards": ["DES-01", "DES-02", "DES-04", "DES-05", "DES-09", "DES-11", "DM-02", "DM-03", "DM-05", "DM-06", "DM-08", "DM-12", "SHR-01", "SHR-02", "SHR-03", "SHR-15", "APX-21", "APX-22", "APX-57", "APX-58", "TST-01", "TST-03", "TST-05", "TST-16", "TST-17", "TST-18", "PIPE-04", "PIPE-11", "PIPE-15"],
+  "adrs": ["docs/adr/0002-program-custom-object.md"],
+  "tests": {
+    "apex": ["LeadEnquiryDetailsTest"],
+    "playwright": ["tests/e2e/specs/5-enquiry-details.spec.ts"]
+  },
+  "acceptanceCriteria": [
+    {
+      "id": "AC1",
+      "status": "passed",
+      "evidence": "LeadEnquiryDetailsTest.shouldLetRecruitmentOfficerCreateLeadWithEnquiryDetails, shouldOfferExactlyTheStudyLevelsOfferedOnPrograms, shouldOfferDomesticAndInternationalCitizenshipOnly, shouldOfferTheAgreedPreferredIntakes, shouldMakeProgramOfInterestAnOptionalLookupToProgram, shouldRejectUnknownCitizenshipStatus, shouldRejectAnIntakeOutsideTheAgreedList; Playwright '#5 AC1: Recruitment Officer records study level, citizenship, preferred intake and program on a new Lead'"
+    },
+    {
+      "id": "AC2",
+      "status": "passed",
+      "evidence": "LeadEnquiryDetailsTest.shouldFilterProgramOfInterestWithAnOptionalLookupFilter, shouldAcceptActiveProgramOfInterest, shouldKeepLeadEditableAfterItsProgramIsDeactivated; Playwright '#5 AC2: Program of Interest offers active programs and not inactive ones'"
+    },
+    {
+      "id": "AC3",
+      "status": "passed",
+      "evidence": "LeadEnquiryDetailsTest.shouldGrantEnquiryFieldsThroughPermissionSetNotProfile; Playwright '#5 AC3: Lead page shows the enquiry details section to the Recruitment Officer' (Dynamic Forms page Lead_Recruitment_Record_Page, Recruitment app default)"
+    },
+    {
+      "id": "AC4",
+      "status": "passed",
+      "evidence": "LeadEnquiryDetailsTest.shouldCreate200LeadsWithEnquiryDetailsInOneTransaction (user mode, as the persona); Playwright '#5 AC4: a Lead created through the API with all four fields shows them on the Lead page' (the Lead is now created through the REST API as the Recruitment Officer)"
+    }
+  ],
+  "testChanges": [
+    {
+      "test": "LeadEnquiryDetailsTest AC2 methods",
+      "change": "The plan's shouldRejectInactiveProgramOfInterest (FIELD_FILTER_VALIDATION_EXCEPTION) is replaced by shouldFilterProgramOfInterestWithAnOptionalLookupFilter, and shouldKeepLeadEditableAfterItsProgramIsDeactivated asserts the save succeeds, because plan decision 6 made the filter optional (test writer).",
+      "whyNotWeaker": "An optional filter is not enforced on save, so the rejection test could never pass; the describe test proves the filter exists and is optional, and Playwright AC2 proves the lookup offers only active programs."
+    },
+    {
+      "test": "LeadEnquiryDetailsTest.shouldRefuseEnquiryDetailsReadToMinimumAccessPersona",
+      "change": "Catches System.QueryException \"sObject type 'Lead' is not supported\" instead of System.SecurityException \"Access to entity 'Lead' denied\".",
+      "whyNotWeaker": "The handover asked the developer to confirm this exception in the sandbox. It is what the platform throws for a user-mode query on a standard object the user cannot read (.agent/5/diagnostics/developer-1-lead-denial-exceptions.txt). Only that exception type is caught, its message is asserted, and the refusal must still happen."
+    },
+    {
+      "test": "tests/e2e/specs/5-enquiry-details.spec.ts setup (beforeAll, seedLead) and support/org.ts createRecordAs",
+      "change": "Programs and the AC3/AC4 Leads are created through the REST API as the Recruitment Officer (new createRecordAs helper using the persona's CLI login in .auth/<key>.alias), not through anonymous Apex as the CLI admin in SYSTEM_MODE.",
+      "whyNotWeaker": "The anonymous Apex setup could never run: it compiles against the admin's FLS (no FLS on these fields) and anonymous Apex refuses SYSTEM_MODE. The records and values are the same. AC4's API call is now made by the persona itself, which is stronger than the old admin-made call the test writer had flagged."
+    },
+    {
+      "test": "tests/e2e/specs/5-enquiry-details.spec.ts AC1, AC2",
+      "change": "New Lead is opened from the Recruitment app (openNewLeadInRecruitmentApp), as AC3/AC4 already did. Lookup results are matched by text inside the 'Search Results' group (programResults), and the results list is closed before Cancel.",
+      "whyNotWeaker": "Lookup record options have no accessible name, so the old name regex matched only the 'Show more results for …' option. That option clicked into Advanced Search, and AC2's inactive-program check passed without testing anything. The new locator finds the active Program as a real result and checks the inactive one by text. Assertions are unchanged."
+    },
+    {
+      "test": "LeadEnquiryDetailsTest.shouldGrantEnquiryFieldsThroughPermissionSetNotProfile",
+      "change": "ENQUIRY_FIELDS is a list of Lead field tokens described inside runAs, not string names resolved through the field map (arch-1, APX-57); it also asserts all four fields were described.",
+      "whyNotWeaker": "Same FLS and FieldPermissions assertions on the same four fields; a renamed field now fails at compile time instead of with a null pointer."
+    },
+    {
+      "test": "tests/e2e/specs/5-enquiry-details.spec.ts AC2",
+      "change": "Before checking the lookup, a persona SOSL search (searchIdsAs) must return the inactive Program's Id, retried for up to 60 s (tests-1).",
+      "whyNotWeaker": "Stronger: the absence assertion can no longer pass just because the inactive Program was not indexed yet."
+    }
+  ],
+  "findings": [
+    { "id": "arch-1", "status": "fixed", "note": "ENQUIRY_FIELDS is now List<Schema.SObjectField> of Lead tokens, described inside runAs; the FieldPermissions names come from getDescribe().getName(). 39/39 Apex pass." },
+    { "id": "arch-2", "status": "fixed", "note": "Lead_Source_Detail__c removed from Lead-Persona Lead Layout; it stays on the Recruitment Dynamic Forms page. No test used it on the base form; Playwright 14/14 pass." },
+    { "id": "arch-3", "status": "fixed", "note": "FlexiPage description now says it is the Recruitment app default, not assigned by profile, and that Persona Base carries only a minimal standard-field Lead layout (accepted decision on #5)." },
+    { "id": "tests-1", "status": "fixed", "note": "AC2 first proves through a persona SOSL search (new searchIdsAs helper) that the inactive Program is indexed, then asserts the lookup's Search Results leave it out." },
+    { "id": "sec-1", "status": "fixed", "note": "Applied wrenscience's recorded decision on #5: securityClassification Internal, complianceGroup PII removed, description and inlineHelpText say the field is a Domestic/International fee and routing category only and must not hold nationality, country of citizenship, citizenship documents or visa details. Lead OWD unchanged. Sandbox FieldDefinition: Internal, ComplianceGroup null." },
+    { "id": "arch-4", "status": "fixed", "note": "PR description updated: the Persona Base layout holds standard fields only (accepted decision on #5 cited), and Citizenship_Status__c is Internal per the sec-1 decision on #5, with the reason (a two-value fee and routing category, not nationality)." }
+  ],
+  "openQuestions": [],
+  "next": "reviewers"
+}

@@ -61,3 +61,10 @@ Option 4, `Program__c`, because options 1–3 fail as above (09 §2 ladder, DES-
   pipeline's own identity after the run (plan decision 6b, PIPE-15). That clean-up is not in the harness yet.
 - Rollback: remove the Program tab from the Recruitment app and the permission set entries, then delete the
   object in a separate destructive PR (QG-09, DES-11) once no lookups reference it.
+
+## Amendments
+- **2026-10-22, issue #5 (plan decision 3):** `enableSearch` is now true, so the Lead `Program_of_Interest__c`
+  lookup can find Programs. This changes search visibility only: who can read Programs is still set by object
+  permission and the Public Read/Write OWD above, and no sharing changes. #5 adds the first lookup to
+  `Program__c` (Lead `Program_of_Interest__c`, relationship `Enquiries`, SetNull on delete) with an optional
+  lookup filter that offers active Programs only.

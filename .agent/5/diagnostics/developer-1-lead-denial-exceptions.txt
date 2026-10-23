@@ -1,0 +1,17 @@
+Issue #5, developer run 1: how a Minimum Access persona is refused Lead in user mode (agent sandbox, API 68).
+
+Apex run of LeadEnquiryDetailsTest after deploying the four Lead fields:
+
+- shouldRefuseEnquiryDetailsToMinimumAccessPersona (Database.insert(lead, AccessLevel.USER_MODE)):
+  passes; System.SecurityException "Access to entity 'Lead' denied", as #4 observed for Program__c.
+
+- shouldRefuseEnquiryDetailsReadToMinimumAccessPersona ([SELECT ... FROM Lead WHERE Id = :id WITH USER_MODE]):
+  failed with an uncaught
+    System.QueryException: sObject type 'Lead' is not supported. If you are attempting to use a custom object,
+    be sure to append the '__c' after the entity name. ...
+  at LeadEnquiryDetailsTest line 308.
+
+So for the standard Lead object a user-mode query by a user with no Lead Read is refused as a QueryException
+("sObject type 'Lead' is not supported"), not the SecurityException that a custom object (Program__c, #4) gives.
+The read is still refused; only the exception type differs. The test now catches System.QueryException and
+asserts that message, and still asserts the refusal happened.

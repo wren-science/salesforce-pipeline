@@ -1,0 +1,17 @@
+Repair attempt 1 on PR #48, finding sec-1 (SHR-01). Sandbox alias: agent. 2026-10-22.
+
+Query: SELECT InternalSharingModel, ExternalSharingModel FROM EntityDefinition WHERE QualifiedApiName = 'Lead'
+Result: InternalSharingModel = ReadWriteTransfer, ExternalSharingModel = Private
+
+Query: SELECT DefaultLeadAccess FROM Organization
+Result: DefaultLeadAccess = ReadEditTransfer
+
+Reading: Lead's internal OWD is Public Read/Write/Transfer. Citizenship_Status__c is Confidential (PII), so
+SHR-01 (internal OWD Private for objects holding Confidential data) is not met. External OWD is Private, which
+meets SHR-01. The repo does not set Lead's OWD; it is the org's existing setting.
+
+Ways forward, all needing a person (governance.md):
+  a) Reclassify Citizenship_Status__c (for example Internal) with a recorded acceptance on #5.
+  b) Change Lead internal OWD to Private: needs an ADR with a sharing recalculation plan (SHR-02, 08 §6) and
+     sharing rules to data-scope groups for everyone who now relies on public Lead access (SHR-03, SHR-04).
+  c) Accept a recorded MUST exception to SHR-01 through an ADR (01 §4).

@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Citizenship_Status__c</fullName>
+    <description>Domestic or International fee and routing category of the enquiry (#5). Classified Internal by the decision on #5 (SHR-01): it must not hold nationality, country of citizenship, citizenship documents or visa details. Restricted picklist (DM-08). Consumers: Recruitment Officers, #10 routing of international enquiries, #8 conversion to Contact. Business owner: Head of Student Recruitment.</description>
+    <inlineHelpText>Domestic or International fee category only, as the enquirer told us. Decides fees and which team follows up. Do not record nationality, country of citizenship, citizenship documents or visa details here.</inlineHelpText>
+    <label>Citizenship Status</label>
+    <required>false</required>
+    <securityClassification>Internal</securityClassification>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>Domestic</fullName>
+                <default>false</default>
+                <label>Domestic</label>
+            </value>
+            <value>
+                <fullName>International</fullName>
+                <default>false</default>
+                <label>International</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

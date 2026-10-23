@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
@@ -14,6 +14,10 @@ const scrub = (s: string) => s.replace(/https?:\/\/\S+/g, '<url removed>');
 
 function sf<T = any>(...args: string[]): T {
   const org = process.env.SF_DATA_ORG ? ['--target-org', process.env.SF_DATA_ORG] : [];
+  return sfAs<T>(org, ...args);
+}
+
+function sfAs<T = any>(org: string[], ...args: string[]): T {
   let out: string;
   try {
     out = execFileSync('sf', [...args, ...org, '--json'], {
@@ -46,6 +50,35 @@ export function runApex(code: string) {
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+}
+
+/**
+ * Creates one record through the REST API as the persona itself, with the persona's CRUD and FLS (TST-16).
+ * Uses the CLI login that scripts/personas.mjs and sandbox-handover.mjs keep in .auth/<key>.alias. Use it when
+ * the record holds fields only the persona permission set grants: the CLI admin has no FLS on them, and anonymous
+ * Apex runs with the admin's FLS (and refuses SYSTEM_MODE). Values must not contain single quotes.
+ */
+export function createRecordAs(personaKey: string, sobject: string, values: Record<string, string | number | boolean>): string {
+  const pairs = Object.entries(values).map(([k, v]) => {
+    if (String(v).includes("'")) throw new Error(`Value for ${k} contains a single quote`);
+    return `${k}='${v}'`;
+  });
+  return sfAs<{ id: string }>(personaOrg(personaKey), 'data', 'create', 'record', '--sobject', sobject, '--values', pairs.join(' ')).id;
+}
+
+/**
+ * Runs a SOSL search as the persona, with the persona's sharing and FLS, and returns the Ids it found. Use it to
+ * prove a record has reached the search index before asserting that a UI search leaves it out.
+ */
+export function searchIdsAs(personaKey: string, sosl: string): string[] {
+  const r = sfAs<{ searchRecords?: { Id: string }[] }>(personaOrg(personaKey), 'data', 'search', '--query', sosl);
+  return (r.searchRecords ?? []).map((rec) => rec.Id);
+}
+
+function personaOrg(personaKey: string): string[] {
+  const aliasFile = join(__dirname, '..', '.auth', `${personaKey}.alias`);
+  if (!existsSync(aliasFile)) throw new Error(`No CLI login for persona ${personaKey}: expected .auth/${personaKey}.alias`);
+  return ['--target-org', readFileSync(aliasFile, 'utf8').trim()];
 }
 
 /** The persona's test user, created by scripts/personas.mjs as `<key>.<orgId>@pipeline...`. */
