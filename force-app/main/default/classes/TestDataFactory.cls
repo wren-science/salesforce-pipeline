@@ -43,4 +43,16 @@ public class TestDataFactory {
         }
         return result;
     }
+
+    /**
+     * Unsaved Contacts (#6) with the required field only: a unique Last Name per record. No Account, so in
+     * NPSP orgs the household Account is created by NPSP. Tests set Email and other matching fields themselves.
+     */
+    public static List<Contact> buildContacts(Integer count, String lastNamePrefix) {
+        List<Contact> result = new List<Contact>();
+        for (Integer i = 0; i < count; i++) {
+            result.add(new Contact(LastName = lastNamePrefix + '-' + i));
+        }
+        return result;
+    }
 }

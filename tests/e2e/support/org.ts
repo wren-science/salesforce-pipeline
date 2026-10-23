@@ -75,6 +75,30 @@ export function searchIdsAs(personaKey: string, sosl: string): string[] {
   return (r.searchRecords ?? []).map((rec) => rec.Id);
 }
 
+/**
+ * Makes one REST API call as the persona and returns the HTTP status and parsed body, including error responses,
+ * so a test can assert on a refusal (for example DUPLICATES_DETECTED) and send request headers such as
+ * Sforce-Duplicate-Rule-Header. Uses Node fetch, outside the browser, so the session token is held in memory
+ * only: never logged, never put in an error and never in a Playwright trace (QG-08, PIPE-14). `path` is relative
+ * to /services/data/vNN.0/, for example 'sobjects/Lead'.
+ */
+export async function restAs(
+  personaKey: string,
+  method: string,
+  path: string,
+  body?: Record<string, unknown>,
+  headers: Record<string, string> = {},
+): Promise<{ status: number; body: any }> {
+  const org = sfAs<{ accessToken: string; instanceUrl: string; apiVersion: string }>(personaOrg(personaKey), 'org', 'display');
+  const res = await fetch(`${org.instanceUrl}/services/data/v${org.apiVersion}/${path}`, {
+    method,
+    headers: { Authorization: `Bearer ${org.accessToken}`, 'Content-Type': 'application/json', Accept: 'application/json', ...headers },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  const text = await res.text();
+  return { status: res.status, body: text ? JSON.parse(text) : null };
+}
+
 function personaOrg(personaKey: string): string[] {
   const aliasFile = join(__dirname, '..', '.auth', `${personaKey}.alias`);
   if (!existsSync(aliasFile)) throw new Error(`No CLI login for persona ${personaKey}: expected .auth/${personaKey}.alias`);

@@ -1,0 +1,48 @@
+{
+  "version": 2,
+  "issue": 6,
+  "stage": "tests-written",
+  "role": "test-writer",
+  "summary": "Tests first for standard Duplicate Management on Lead (plan approved). LeadDuplicateRuleTest runs every insert as the Recruitment Officer in user mode with the duplicate rule run as that user, and asserts this story's rule Prospective_Student_Lead_Duplicate by name, its alert text, Allow on save and the listed match. The Playwright spec has one test per AC as the persona; AC4 uses a new restAs helper. TestDataFactory gains buildContacts. All are expected to fail until the developer builds.",
+  "standards": ["DES-01", "DES-02", "DES-05", "APX-21", "APX-22", "APX-57", "TST-01", "TST-03", "TST-04", "TST-05", "TST-06", "TST-12", "TST-16", "TST-17", "TST-18", "SHR-15", "PIPE-11", "PIPE-12", "PIPE-14", "PIPE-15", "QG-08"],
+  "adrs": [],
+  "tests": {
+    "apex": ["LeadDuplicateRuleTest"],
+    "playwright": ["tests/e2e/specs/6-duplicate-enquiries.spec.ts"]
+  },
+  "acceptanceCriteria": [
+    {
+      "id": "AC1",
+      "status": "not-built",
+      "evidence": "LeadDuplicateRuleTest.shouldFlagNewLeadWithSameEmailAsExistingLead, shouldFlagNewLeadWithSameEmailAsExistingContact; Playwright '#6 AC1: a new Lead with an existing Lead's email shows the duplicate alert listing that Lead' and '#6 AC1: a new Lead with an existing Contact's email shows the duplicate alert listing that Contact'"
+    },
+    {
+      "id": "AC2",
+      "status": "not-built",
+      "evidence": "LeadDuplicateRuleTest.shouldFlagNewLeadWithSameNameAndMobileAsExistingLead, shouldNotFlagSameNameWithDifferentMobile; Playwright '#6 AC2: a new Lead with the same first name, last name and mobile as an existing Lead shows the alert'"
+    },
+    {
+      "id": "AC3",
+      "status": "not-built",
+      "evidence": "LeadDuplicateRuleTest.shouldSaveLeadWithDifferentEmailAndMobileWithoutAlert, shouldNotMatchLeadsWithBlankEmailAndMobile, shouldSave200DistinctLeadsAndFlag200Duplicates (bulk); Playwright '#6 AC3: a new Lead with a different email and mobile saves with no duplicate alert'"
+    },
+    {
+      "id": "AC4",
+      "status": "not-built",
+      "evidence": "LeadDuplicateRuleTest.shouldRejectApiStyleInsertUnlessAllowSaveIsSet, shouldAllowEditOfSavedDuplicateWithoutAlert; Playwright '#6 AC4: a Lead created through the REST API with an existing email is reported as a duplicate' (400 DUPLICATES_DETECTED, then 201 with Sforce-Duplicate-Rule-Header allowSave=true). Denial and access: shouldRefuseLeadCreateToMinimumAccessPersona, shouldGrantEmailAndMobileThroughPermissionSetNotProfile"
+    }
+  ],
+  "testChanges": [],
+  "findings": [],
+  "openQuestions": [
+    {
+      "question": "Developer, please confirm in the sandbox: (1) the duplicate rule's alert text is exactly the plan's 'This person may already be in the system. Check the matching records before you contact them.', which both test files assert; (2) the Minimum Access denial is SecurityException \"Access to entity 'Lead' denied\" with the DMLOptions insert overload; (3) with Bypass sharing rules a Contact the officer cannot open is still listed in getMatchRecords and in View Duplicates. Adjust only with a testChanges entry.",
+      "owner": "pipeline"
+    },
+    {
+      "question": "The UI tests assume Lightning keeps the New Lead form open with the alert text and a 'View Duplicates' link or button after the first Save, and lists matches by full name ('Mai E2E-…'). If the live markup differs, fix the locators, not the assertions.",
+      "owner": "pipeline"
+    }
+  ],
+  "next": "developer"
+}
