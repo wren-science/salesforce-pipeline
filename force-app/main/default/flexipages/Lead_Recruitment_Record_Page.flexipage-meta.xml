@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <FlexiPage xmlns="http://soap.sforce.com/2006/04/metadata">
-    <description>Recruitment app Lead default (#5 plan decision 4), Dynamic Forms with Enquiry details. Not assigned by profile; Persona Base carries only a minimal standard-field Lead layout (accepted decision on #5).</description>
+    <description>Recruitment app Lead default (#5 plan decision 4), Dynamic Forms with Enquiry details; Mobile and the Potential Duplicates card from #6. Not assigned by profile; Persona Base carries only a minimal standard-field Lead layout (accepted decision on #5).</description>
     <flexiPageRegions>
         <itemInstances>
             <componentInstance>
@@ -48,6 +48,16 @@
                 </fieldInstanceProperties>
                 <fieldItem>Record.Email</fieldItem>
                 <identifier>RecordEmailField</identifier>
+            </fieldInstance>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
+                <fieldInstanceProperties>
+                    <name>uiBehavior</name>
+                    <value>none</value>
+                </fieldInstanceProperties>
+                <fieldItem>Record.MobilePhone</fieldItem>
+                <identifier>RecordMobilePhoneField</identifier>
             </fieldInstance>
         </itemInstances>
         <itemInstances>
@@ -304,6 +314,12 @@
         <type>Region</type>
     </flexiPageRegions>
     <flexiPageRegions>
+        <itemInstances>
+            <componentInstance>
+                <componentName>runtime_sales_merge:mergeCandidatesPreviewCard</componentName>
+                <identifier>runtime_sales_merge_mergeCandidatesPreviewCard</identifier>
+            </componentInstance>
+        </itemInstances>
         <itemInstances>
             <componentInstance>
                 <componentName>runtime_sales_activities:activityPanel</componentName>
